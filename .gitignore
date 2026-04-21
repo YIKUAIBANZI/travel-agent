@@ -1,0 +1,17 @@
+venv/
+.env
+.env.local
+data/raw/*.json
+data/cleaned/*.json
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.ruff_cache/
+.pytest_cache/
+.playwright-cli/
+stitch_innovative_report_design/
+mediacrawler/
+
+# logs / runtime
+*.log

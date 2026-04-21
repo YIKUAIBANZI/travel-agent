@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Curator — 旅行策展人</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=02ef4fa35d3514dc5a5576b5b8269fc1"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode:"class",
+  theme:{ extend:{
+    colors:{
+      "background":"#faf8fe","surface":"#faf8fe","surface-bright":"#faf8fe",
+      "surface-container-lowest":"#ffffff","surface-container-low":"#f4f3f8",
+      "surface-container":"#efedf3","surface-container-high":"#e9e7ed","surface-container-highest":"#e3e2e7",
+      "surface-dim":"#dad9df","surface-variant":"#e3e2e7",
+      "primary":"#3c00bd","primary-container":"#5423e7","primary-fixed":"#e6deff","primary-fixed-dim":"#c9beff",
+      "on-primary":"#ffffff","on-primary-container":"#ccc1ff",
+      "secondary":"#5c3cdb","secondary-container":"#7659f6","secondary-fixed":"#e6deff",
+      "tertiary":"#4e3a0c","tertiary-fixed":"#ffdea3","tertiary-fixed-dim":"#e2c289","tertiary-container":"#675122",
+      "on-tertiary-fixed":"#261900","on-tertiary-fixed-variant":"#594316","on-tertiary-container":"#e4c58b",
+      "on-background":"#1a1b1f","on-surface":"#1a1b1f","on-surface-variant":"#484456",
+      "outline":"#797488","outline-variant":"#c9c3d9",
+      "error":"#ba1a1a","error-container":"#ffdad6","on-error":"#ffffff","on-error-container":"#93000a",
+      "inverse-surface":"#2f3034","inverse-on-surface":"#f1f0f5","inverse-primary":"#c9beff"
+    },
+    borderRadius:{ "DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","2xl":"1rem","3xl":"1.5rem","4xl":"2rem","full":"9999px" },
+    fontFamily:{ "headline":["Plus Jakarta Sans"], "body":["Inter"], "label":["Inter"] }
+  }},
+}
+</script>
+<style>
+  body{font-family:'Inter',sans-serif;background:#faf8fe;color:#1a1b1f}
+  h1,h2,h3,h4,.font-headline{font-family:'Plus Jakarta Sans',sans-serif}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+  .icon-filled{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
+  .primary-gradient{background:linear-gradient(135deg,#3c00bd 0%,#5423e7 100%)}
+  .ambient-shadow{box-shadow:0 12px 32px rgba(26,27,31,0.06)}
+  .premium-shadow{box-shadow:0 20px 50px rgba(0,0,0,0.08)}
+  .msg-enter{animation:msgIn 0.4s cubic-bezier(0.22,0.61,0.36,1)}
+  @keyframes msgIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  /* AI bubble curator accent line */
+  .ai-bubble{border-left:4px solid #ffdea3;padding-left:1rem}
+  /* spot card selection */
+  .spot-card{transition:all 0.2s;cursor:pointer}
+  .spot-card:hover{background:#f4f3f8}
+  .spot-card.selected{background:#e6deff;border-left:3px solid #3c00bd}
+  /* markdown body */
+  .md-body h2,.md-body h3{font-family:'Plus Jakarta Sans';font-weight:700;margin:0.7rem 0 0.3rem;color:#1a1b1f}
+  .md-body h2{font-size:1.15rem} .md-body h3{font-size:0.98rem;color:#3c00bd}
+  .md-body p{margin-bottom:0.5rem;line-height:1.7} .md-body p:last-child{margin-bottom:0}
+  .md-body ul,.md-body ol{padding-left:1.3rem;margin-bottom:0.5rem}
+  .md-body li{margin-bottom:0.2rem;line-height:1.7}
+  .md-body strong{color:#3c00bd;font-weight:700}
+  .md-body blockquote{border-left:3px solid #ffdea3;padding-left:0.8rem;color:#484456;margin:0.6rem 0;font-style:italic}
+  .md-body a{color:#3c00bd;text-decoration:underline}
+  .md-body hr{border:none;border-top:1px solid #e3e2e7;margin:0.8rem 0}
+  /* scroll */
+  .chat-area::-webkit-scrollbar{width:6px}
+  .chat-area::-webkit-scrollbar-thumb{background:#c9c3d9;border-radius:3px}
+  .chat-area::-webkit-scrollbar-thumb:hover{background:#797488}
+  /* soft decorative blur blobs */
+  .blob{position:absolute;border-radius:9999px;filter:blur(100px);pointer-events:none;z-index:0}
+  .blob-1{top:12%;right:-6rem;width:24rem;height:24rem;background:rgba(201,190,255,0.35)}
+  .blob-2{bottom:14%;left:-6rem;width:22rem;height:22rem;background:rgba(255,222,163,0.28)}
+  /* command bar halo on focus */
+  .command-halo{position:absolute;inset:-4px;border-radius:2rem;background:linear-gradient(90deg,rgba(60,0,189,0.12),rgba(255,222,163,0.18));filter:blur(24px);opacity:.55;transition:opacity .3s;pointer-events:none}
+  .command-bar:focus-within .command-halo{opacity:1}
+</style>
+</head>
+<body class="bg-background text-on-background overflow-hidden h-screen flex">
+
+<!-- ─────── SideNavBar ─────── -->
+<aside class="hidden md:flex fixed left-0 top-0 h-screen flex-col py-8 w-72 flex-shrink-0 bg-surface-container-low font-headline tracking-tight z-30">
+  <div class="px-8 mb-8 flex flex-col gap-1">
+    <span class="text-lg font-bold text-primary tracking-[0.03em]">The Curator</span>
+    <span class="text-xs text-on-surface-variant opacity-70">旅行策展工作台</span>
+  </div>
+  <div class="px-6 mb-8">
+    <button onclick="resetChat()" class="w-full flex items-center justify-center gap-2 primary-gradient text-on-primary py-3 rounded-full font-semibold shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+      <span class="material-symbols-outlined text-sm">add</span>
+      新行程
+    </button>
+  </div>
+  <nav class="flex-1 overflow-y-auto space-y-1">
+    <div class="px-8 py-2 text-[10px] font-bold uppercase tracking-widest text-outline">Main</div>
+    <a class="flex items-center gap-3 px-8 py-3 bg-surface-container-highest text-primary border-l-[3px] border-primary font-semibold" href="#">
+      <span class="material-symbols-outlined">book_4</span>我的行程
+    </a>
+    <a class="flex items-center gap-3 px-8 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+      <span class="material-symbols-outlined">folder_special</span>灵感合集
+    </a>
+    <a class="flex items-center gap-3 px-8 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+      <span class="material-symbols-outlined">palette</span>探索
+    </a>
+    <div class="mt-8 px-8 py-2 text-[10px] font-bold uppercase tracking-widest text-outline">Timeline</div>
+    <div id="timeline" class="space-y-1">
+      <div class="px-8 py-2 text-xs font-semibold text-on-surface-variant/60">Recent</div>
+      <div id="timeline-recent" class="space-y-0.5"></div>
+    </div>
+  </nav>
+  <div class="mt-auto px-6 pt-6">
+    <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-container">
+      <div id="profile-avatar" class="w-10 h-10 rounded-full primary-gradient flex items-center justify-center text-white font-headline font-bold text-sm shrink-0">旅</div>
+      <div class="flex flex-col min-w-0">
+        <span class="text-sm font-bold text-on-surface truncate" id="profile-name">旅行者</span>
+        <span class="text-[10px] text-on-surface-variant" id="profile-tier">Curator · 未开始</span>
+      </div>
+      <span class="material-symbols-outlined ml-auto text-outline">settings</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ─────── Main Content Canvas ─────── -->
+<main class="md:ml-72 flex-1 flex flex-col h-full bg-surface">
+  <!-- TopNav -->
+  <header class="flex justify-between items-center px-6 md:px-10 w-full h-16 sticky top-0 z-40 bg-background/70 backdrop-blur-xl ambient-shadow font-headline font-medium">
+    <div class="flex items-center gap-8">
+      <span class="text-xl font-extrabold tracking-wider text-primary">The Eloquent Canvas</span>
+      <nav class="hidden md:flex gap-6 items-center">
+        <a class="text-primary border-b-2 border-primary text-sm font-semibold pb-0.5" href="#">规划中</a>
+        <a class="text-outline hover:text-primary transition-colors text-sm" href="#">已完成</a>
+        <a class="text-outline hover:text-primary transition-colors text-sm" href="#">分享</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="relative hidden md:block">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">search</span>
+        <input class="bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="搜索工作台..." type="text"/>
+      </div>
+      <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors p-2">notifications</button>
+      <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors p-2">account_circle</button>
+    </div>
+  </header>
+
+  <!-- Dynamic Canvas -->
+  <div class="flex-1 relative flex flex-col p-4 md:p-8 overflow-hidden">
+    <!-- Decorative blur blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <!-- Chat / Welcome scrollable area -->
+    <section id="chat-area" class="chat-area flex-1 overflow-y-auto w-full max-w-4xl mx-auto z-10 pb-6 space-y-6">
+      <!-- Welcome initial (replaced by chat messages on first send) -->
+      <div id="welcome" class="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-fixed/25 text-on-tertiary-fixed-variant text-[10px] font-bold uppercase tracking-[0.14em] border border-tertiary-fixed/40 mb-6">
+          <span class="w-1 h-1 rounded-full bg-tertiary-fixed-dim"></span>
+          PREMIUM ACCESS
+        </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-on-surface tracking-tight leading-tight mb-4">
+          今天想策划<br/><span class="text-primary italic">怎样的一场旅行？</span>
+        </h1>
+        <p class="text-on-surface-variant text-base md:text-lg max-w-lg mx-auto opacity-70 mb-10">
+          把你的城市、天数、偏好告诉我，<br/>我来把它们编织成一段属于你的行程叙事。
+        </p>
+
+        <!-- Bento grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 w-full">
+          <!-- AI greeting card -->
+          <div class="md:col-span-2 bg-surface-container-lowest p-6 md:p-8 rounded-3xl ambient-shadow flex flex-col justify-between text-left">
+            <div class="space-y-5">
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <div class="flex-1 space-y-2">
+                  <h3 class="font-bold text-lg text-on-surface">Curator Intelligence</h3>
+                  <p class="text-on-surface-variant leading-relaxed">告诉我目的地、天数、同行人数与偏好，我会基于高德 POI、真实攻略与实时搜索，编排一份独属于你的行程。</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-6 flex flex-wrap gap-2">
+              <button onclick="sendHint(this)" data-text="我想去成都玩4天，2个人，就想吃好吃的" class="px-4 py-2 rounded-full bg-primary text-on-primary text-xs font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">🍜 成都4天美食</button>
+              <button onclick="sendHint(this)" data-text="想带父母去杭州3天，老人走路不太方便" class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface text-xs font-semibold hover:bg-surface-container-highest transition-colors">🏯 杭州3天带父母</button>
+              <button onclick="sendHint(this)" data-text="三亚2天情侣旅行，想拍照打卡网红景点" class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface text-xs font-semibold hover:bg-surface-container-highest transition-colors">📸 三亚2天情侣游</button>
+              <button onclick="sendHint(this)" data-text="去西安5天，想深度体验历史文化古迹" class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface text-xs font-semibold hover:bg-surface-container-highest transition-colors">🏛️ 西安5天文化</button>
+            </div>
+          </div>
+          <!-- Inspiration card -->
+          <div class="bg-surface-container-low p-6 md:p-8 rounded-3xl flex flex-col justify-between relative overflow-hidden group text-left">
+            <div class="absolute inset-0 opacity-[0.08] pointer-events-none" style="background:linear-gradient(135deg,#3c00bd 0%,#ffdea3 100%)"></div>
+            <div class="z-10">
+              <span class="text-primary font-bold text-xs uppercase tracking-widest">Inspiration</span>
+              <h3 class="font-bold text-xl mt-2 text-on-surface">The Archive</h3>
+              <p class="text-on-surface-variant text-sm mt-2 opacity-80">500+ 城市攻略 · 六型旅行者画像 · 策展式行程</p>
+            </div>
+            <div class="z-10 mt-6">
+              <a class="inline-flex items-center gap-1 text-primary text-sm font-bold group-hover:gap-3 transition-all" href="#">
+                浏览合集<span class="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Floating Command Bar -->
+    <div class="w-full max-w-4xl mx-auto z-20">
+      <div class="command-bar relative group">
+        <div class="command-halo"></div>
+        <div class="relative bg-surface-container-lowest/85 backdrop-blur-2xl rounded-4xl p-4 premium-shadow" style="border:1px solid rgba(255,255,255,0.4)">
+          <div class="flex flex-col gap-3">
+            <!-- Input row -->
+            <div class="flex items-center px-4 gap-4">
+              <span class="material-symbols-outlined text-outline">edit_note</span>
+              <input id="user-input" autofocus class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-outline text-base md:text-lg py-2 font-body"
+                placeholder="告诉 Curator 你想去哪里..." type="text"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"/>
+            </div>
+            <!-- Chip row -->
+            <div class="flex items-center justify-between pt-3 px-2" style="border-top:1px solid rgba(201,195,217,0.25)">
+              <div class="flex items-center gap-2 flex-wrap">
+                <div id="quick-chips" class="flex items-center gap-2 flex-wrap"></div>
+                <button class="p-2 hover:bg-surface-container rounded-full transition-colors text-on-surface-variant" title="附件">
+                  <span class="material-symbols-outlined text-lg">attach_file</span>
+                </button>
+                <button class="p-2 hover:bg-surface-container rounded-full transition-colors text-on-surface-variant" title="图片">
+                  <span class="material-symbols-outlined text-lg">image</span>
+                </button>
+              </div>
+              <button id="send-btn" onclick="send()" disabled
+                class="primary-gradient text-on-primary w-12 h-12 rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100">
+                <span class="material-symbols-outlined icon-filled">send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Footer shortcuts -->
+      <div class="mt-5 flex justify-center gap-6 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-outline">
+        <a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-sm">keyboard_command_key</span>Shortcuts</a>
+        <a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-sm">help</span>Guide</a>
+        <a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-sm">bolt</span>Advanced</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ─────── Map Modal ─────── -->
+<div id="map-modal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onclick="closeMap()"></div>
+  <div class="absolute inset-4 md:inset-12 lg:inset-20 bg-surface-container-lowest rounded-3xl premium-shadow flex flex-col overflow-hidden z-10">
+    <div class="flex items-center justify-between px-6 py-4 bg-surface-container-low">
+      <h3 class="font-headline font-bold text-base text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">map</span>景点地图
+      </h3>
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center gap-3 text-[10px] font-bold text-on-surface-variant">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#3c00bd"></span>景点</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#d93025"></span>餐饮</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#f59e0b"></span>购物</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#7659f6"></span>娱乐</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#22c55e"></span>住宿</span>
+        </div>
+        <button onclick="closeMap()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-on-surface-variant">close</span>
+        </button>
+      </div>
+    </div>
+    <div id="map-container" class="flex-1"></div>
+  </div>
+</div>
+
+<script>
+// ── Config ──
+const API = window.location.origin;
+marked.setOptions({ breaks:true, gfm:true });
+const TYPE_LABELS = {A:'打卡型',B:'亲子型',C:'银发型',D:'穷游型',E:'文化型',F:'美食型'};
+const TYPE_COLORS = {A:'#ec4899',B:'#f97316',C:'#8b5cf6',D:'#22c55e',E:'#6366f1',F:'#ef4444'};
+
+// ── State ──
+let sessionId=null, isLoading=false, currentSpots=[], selectedIdx=new Set();
+let mapSpots=[], mapInstance=null, lastState='init';
+const chatArea  = document.getElementById('chat-area');
+const inputEl   = document.getElementById('user-input');
+const sendBtn   = document.getElementById('send-btn');
+const welcomeEl = document.getElementById('welcome');
+
+inputEl.addEventListener('input', () => { sendBtn.disabled = isLoading || !inputEl.value.trim(); });
+
+// ── Session ──
+async function initSession(){
+  try{ const r=await fetch(`${API}/session/new`,{method:'POST'}); sessionId=(await r.json()).session_id; }
+  catch(e){ console.error('Session init failed',e); }
+}
+
+// ── Send ──
+function stepperKeyForOutbound(){
+  if (lastState==='select_spots') return 'generating';
+  if (lastState==='collect_preferences') return 'select';
+  if (lastState==='done') return 'followup';
+  if (lastState==='init') return 'init';
+  return 'collect';
+}
+async function send(){
+  const text = inputEl.value.trim();
+  if (!text || isLoading) return;
+  if (!sessionId) { await initSession(); if (!sessionId) return; }
+  if (welcomeEl && welcomeEl.parentNode) welcomeEl.remove();
+  appendUser(text);
+  inputEl.value=''; sendBtn.disabled=true; setLoading(true);
+  showThinking(stepperKeyForOutbound());
+  clearQuickChips();
+  try{
+    const r=await fetch(`${API}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,message:text})});
+    hideThinking(); handleResponse(await r.json());
+  }catch(e){ hideThinking(); appendAgent('抱歉，发生了错误，请重试。'); }
+  setLoading(false);
+}
+function sendHint(el){ inputEl.value=el.dataset.text; send(); }
+
+// ── Response ──
+function handleResponse(d){
+  const state=(d.state||'').toLowerCase();
+  lastState = state;
+  updateHeader(state);
+  renderQuickChips(state);
+  if (state==='select_spots' && d.spots?.length){
+    if (d.message) appendAgent(d.message);
+    currentSpots=d.spots; selectedIdx.clear(); renderSpots(d.spots);
+  } else if (state==='done' && d.itinerary){
+    renderItinerary(d.itinerary);
+  } else if (d.message){
+    appendAgent(d.message);
+  }
+}
+
+// ── Quick chips ──
+const CHIP_PRESETS = {
+  collect_preferences: [
+    {icon:'restaurant',    text:'喜欢本地小吃'},
+    {icon:'hotel',         text:'预算比较宽松'},
+    {icon:'directions_walk', text:'能走不怕累'},
+    {icon:'photo_camera',  text:'多拍照打卡'}
+  ],
+  select_spots: [
+    {icon:'auto_awesome',  text:'挑最热门的'},
+    {icon:'park',          text:'更偏自然风光'},
+    {icon:'account_balance', text:'更偏文化古迹'}
+  ],
+  done: [
+    {icon:'edit',     text:'换 Day 2 的行程'},
+    {icon:'download', text:'导出这份行程'},
+    {icon:'question_mark', text:'有哪些注意事项'}
+  ]
+};
+function renderQuickChips(state){
+  const wrap=document.getElementById('quick-chips'); if (!wrap) return;
+  const preset = CHIP_PRESETS[state];
+  if (!preset) { wrap.innerHTML=''; return; }
+  wrap.innerHTML = preset.map(c=>`
+    <button onclick="quickSend(this)" data-text="${c.text}" class="flex items-center gap-1 bg-surface-container px-3 py-1.5 rounded-full text-xs text-on-surface-variant hover:bg-surface-container-high transition-colors" style="border:1px solid rgba(201,195,217,0.25)">
+      <span class="material-symbols-outlined text-sm">${c.icon}</span>${c.text}
+    </button>`).join('');
+}
+function clearQuickChips(){ const w=document.getElementById('quick-chips'); if (w) w.innerHTML=''; }
+function quickSend(el){ inputEl.value=el.dataset.text; send(); }
+
+// ── Header / Profile sync ──
+function updateHeader(state){
+  if (!sessionId) return;
+  fetch(`${API}/session/${sessionId}`).then(r=>r.json()).then(info=>{
+    const t = info.traveler_type || '', city = info.city || '';
+    const name = document.getElementById('profile-name');
+    const tier = document.getElementById('profile-tier');
+    const av   = document.getElementById('profile-avatar');
+    if (city) name.textContent = city + (info.days?` · ${info.days}天`:'');
+    else name.textContent = '旅行者';
+    if (t) {
+      tier.textContent = `[${t} ${TYPE_LABELS[t]||''}] Curator`;
+      tier.style.color = TYPE_COLORS[t] || '';
+    } else {
+      tier.textContent = 'Curator · 对话中';
+      tier.style.color = '';
+    }
+    if (av) av.textContent = (city && city[0]) || t || '旅';
+  }).catch(()=>{});
+}
+
+// ── Agent / User bubbles ──
+function appendAgent(text){
+  const div=document.createElement('div'); div.className='msg-enter';
+  div.innerHTML = `
+    <div class="flex items-start gap-3 max-w-3xl">
+      <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+        <span class="material-symbols-outlined">auto_awesome</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-bold text-primary uppercase tracking-widest mb-2">Curator Intelligence</div>
+        <div class="ai-bubble md-body text-on-surface text-[15px]">${marked.parse(text)}</div>
+      </div>
+    </div>`;
+  chatArea.appendChild(div); scrollBottom();
+}
+function appendUser(text){
+  const div=document.createElement('div'); div.className='msg-enter flex justify-end';
+  div.innerHTML = `
+    <div class="max-w-[75%] bg-primary text-on-primary px-5 py-3 text-[15px] leading-relaxed shadow-lg shadow-primary/10" style="border-radius:1.5rem 1.5rem 0.25rem 1.5rem">
+      ${text.replace(/</g,'&lt;')}
+    </div>`;
+  chatArea.appendChild(div); scrollBottom();
+}
+
+// ── Stepper (thinking) ──
+const STEP_PRESETS = {
+  init:       ['正在识别城市与旅行者画像','匹配个性化偏好方向'],
+  collect:    ['理解你的偏好细节','准备候选景点'],
+  select:     ['按类型化权重排序景点','匹配附近美食','抓取实时天气','搜索住宿攻略'],
+  generating: ['编排每日 Anchor & Orbit','聚类地理带与节奏韵律','生成备选方案与打包清单'],
+  followup:   ['回顾你的行程','调整推荐']
+};
+let thinkingEl=null, thinkingTimer=null;
+function showThinking(key='init'){
+  hideThinking();
+  const steps = STEP_PRESETS[key] || STEP_PRESETS.init;
+  const div = document.createElement('div'); div.className='msg-enter';
+  const items = steps.map((s,i)=>`
+    <div class="step-row flex items-center gap-3" data-idx="${i}">
+      <span class="step-icon radio inline-flex items-center justify-center w-5 h-5">
+        <span class="material-symbols-outlined text-outline" style="font-size:20px">radio_button_unchecked</span>
+      </span>
+      <span class="step-icon spin hidden w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></span>
+      <span class="step-icon done hidden inline-flex items-center justify-center w-5 h-5">
+        <span class="material-symbols-outlined text-primary icon-filled" style="font-size:20px">check_circle</span>
+      </span>
+      <span class="text-sm font-medium text-on-surface">${s}</span>
+    </div>`).join('');
+  div.innerHTML = `
+    <div class="flex items-start gap-3 max-w-3xl">
+      <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+        <span class="material-symbols-outlined">auto_awesome</span>
+      </div>
+      <div class="flex-1">
+        <div class="text-xs font-bold text-primary uppercase tracking-widest mb-2">Curator Intelligence</div>
+        <div class="ai-bubble">
+          <div class="bg-surface-container-low p-5 rounded-2xl space-y-3">
+            <h4 class="font-headline font-bold text-sm flex items-center gap-2 text-primary">
+              <span class="material-symbols-outlined text-lg">pending</span>正在策展你的行程...
+            </h4>
+            <div class="space-y-3">${items}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  chatArea.appendChild(div); thinkingEl=div; scrollBottom();
+  advanceStepper(div, 0);
+  let cur=0;
+  thinkingTimer = setInterval(()=>{
+    cur = Math.min(cur+1, steps.length-1);
+    advanceStepper(div, cur);
+    if (cur>=steps.length-1){ clearInterval(thinkingTimer); thinkingTimer=null; }
+  }, 2200);
+}
+function advanceStepper(root, activeIdx){
+  const rows = root.querySelectorAll('.step-row');
+  rows.forEach((r,i)=>{
+    const radio=r.querySelector('.radio'), spin=r.querySelector('.spin'), done=r.querySelector('.done');
+    radio.classList.add('hidden'); spin.classList.add('hidden'); done.classList.add('hidden');
+    if (i<activeIdx)       { done.classList.remove('hidden');  r.style.opacity=1; }
+    else if (i===activeIdx){ spin.classList.remove('hidden'); r.style.opacity=1; }
+    else                    { radio.classList.remove('hidden'); r.style.opacity=0.45; }
+  });
+}
+function hideThinking(){
+  if (thinkingTimer){ clearInterval(thinkingTimer); thinkingTimer=null; }
+  if (thinkingEl){ thinkingEl.remove(); thinkingEl=null; }
+}
+
+// ── Spots selector ──
+function renderSpots(spots){
+  const wrap=document.createElement('div'); wrap.className='msg-enter'; wrap.id='spots-widget';
+  let h=`<div class="flex items-start gap-3 max-w-3xl"><div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><span class="material-symbols-outlined">playlist_add_check</span></div><div class="flex-1"><div class="text-xs font-bold text-primary uppercase tracking-widest mb-2">Curator Picks</div><div class="ai-bubble">`;
+  h += `<p class="text-xs font-semibold text-on-surface-variant mb-3">${spots.length} 个候选景点 · 点击选择你想去的</p><div class="space-y-2">`;
+  spots.forEach((s,i)=>{
+    const rating = s.rating?`<span class="text-[11px] font-bold text-tertiary-container">⭐${s.rating}</span>`:'';
+    const tag    = s.type?`<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full">${s.type}</span>`:'';
+    const bt     = s.best_time?`<span class="text-[10px] text-on-surface-variant">🕐${s.best_time}</span>`:'';
+    const reason = s.reason?`<p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2">${s.reason}</p>`:'';
+    h += `<div class="spot-card flex items-center gap-3 p-3 rounded-xl bg-surface-container-lowest" data-idx="${i}" onclick="toggleSpot(this,${i})">
+      <div class="w-5 h-5 rounded-DEFAULT shrink-0 flex items-center justify-center transition-all" style="border:2px solid #c9c3d9" id="chk-${i}"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2"><span class="text-sm font-bold text-on-surface">${s.name}</span>${rating}</div>
+        <div class="flex items-center gap-2 mt-0.5">${tag}${bt}</div>${reason}
+      </div></div>`;
+  });
+  h += `</div><button id="spots-submit" onclick="submitSpots()" disabled class="mt-4 w-full py-3 primary-gradient text-on-primary rounded-full font-bold text-sm shadow-lg shadow-primary/20 disabled:opacity-40 active:scale-[0.98] transition-all">确认选择，生成行程</button></div></div></div>`;
+  wrap.innerHTML = h; chatArea.appendChild(wrap); scrollBottom();
+}
+function toggleSpot(el,i){
+  selectedIdx.has(i)?selectedIdx.delete(i):selectedIdx.add(i);
+  el.classList.toggle('selected', selectedIdx.has(i));
+  const chk=document.getElementById(`chk-${i}`);
+  if (selectedIdx.has(i)){
+    chk.style.background='#3c00bd'; chk.style.borderColor='#3c00bd';
+    chk.innerHTML='<span class="material-symbols-outlined text-white icon-filled" style="font-size:14px">check</span>';
+  } else { chk.style.background=''; chk.style.borderColor='#c9c3d9'; chk.innerHTML=''; }
+  const btn=document.getElementById('spots-submit');
+  btn.disabled = selectedIdx.size===0;
+  btn.textContent = selectedIdx.size>0 ? `确认选择（已选 ${selectedIdx.size}），生成行程` : '确认选择，生成行程';
+}
+async function submitSpots(){
+  if (selectedIdx.size===0) return;
+  const w=document.getElementById('spots-widget'); if (w) w.remove();
+  const idx = Array.from(selectedIdx).sort((a,b)=>a-b);
+  appendUser(`我选择了：${idx.map(i=>currentSpots[i]?.name).filter(Boolean).join('、')}`);
+  setLoading(true); showThinking('generating'); clearQuickChips();
+  try{
+    const r = await fetch(`${API}/chat/select-spots`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,selected_indices:idx})});
+    hideThinking(); handleResponse(await r.json());
+  }catch(e){ hideThinking(); appendAgent('行程生成失败，请重试。'); }
+  setLoading(false); selectedIdx.clear();
+}
+
+// ── Itinerary renderer ──
+function renderItinerary(it){
+  mapSpots = [];
+  currentSpots.forEach(s=>{ if (s.lat && s.lng) mapSpots.push({name:s.name,lat:s.lat,lng:s.lng,type:s.type||'景点'}); });
+
+  const w=document.createElement('div'); w.className='msg-enter space-y-6';
+  let h = `<div class="flex items-start gap-3 max-w-4xl">
+    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><span class="material-symbols-outlined">auto_stories</span></div>
+    <div class="flex-1 min-w-0 space-y-5">
+      <div class="text-xs font-bold text-primary uppercase tracking-widest">Curated Itinerary</div>`;
+
+  // Summary header (editorial)
+  h += `<div class="bg-surface-container-lowest rounded-3xl p-6 md:p-8 ambient-shadow">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-fixed/25 text-on-tertiary-fixed-variant text-[10px] font-bold uppercase tracking-[0.1em] mb-3">
+      <span class="w-1 h-1 rounded-full bg-tertiary-fixed-dim"></span>FINAL DRAFT
+    </div>
+    <h2 class="text-3xl font-extrabold text-on-surface tracking-tight leading-tight">${it.city} <span class="text-primary italic">${it.days}天</span></h2>
+    ${it.summary?`<p class="text-on-surface-variant leading-relaxed mt-3 max-w-2xl">${it.summary}</p>`:''}
+    ${it.daily_budget_estimate?`<div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-full text-xs font-bold">💰 日均 ¥${it.daily_budget_estimate}</div>`:''}
+  </div>`;
+
+  // Day tabs
+  if (it.days_plan?.length>1){
+    h += `<div class="flex gap-2 overflow-x-auto pb-1">`;
+    it.days_plan.forEach((d,i)=>{
+      h += `<button onclick="showDay(${i})" class="day-tab px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${i===0?'primary-gradient text-on-primary shadow-lg shadow-primary/20':'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}">Day ${d.day}${d.theme?' · '+d.theme:''}</button>`;
+    });
+    h += `</div>`;
+  }
+
+  // Each day
+  it.days_plan?.forEach((day,i)=>{
+    h += `<div class="day-content ${i>0?'hidden':''}" data-day="${i}">`;
+    h += `<div class="bg-surface-container-low p-5 rounded-2xl mb-4">
+      <div class="flex items-center gap-3 mb-1"><h3 class="font-headline font-bold text-base text-on-surface">第${day.day}天${day.theme?' · '+day.theme:''}</h3>
+      ${day.rhythm?`<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full">${day.rhythm}</span>`:''}</div>
+      ${day.district?`<p class="text-xs text-on-surface-variant">📍 ${day.district}</p>`:''}
+      ${day.tips?`<p class="text-xs text-primary mt-1">💡 ${day.tips}</p>`:''}
+    </div>`;
+    h += `<div class="relative pl-6 space-y-4 ml-2" style="border-left:2px solid rgba(201,195,217,0.5)">`;
+    const secs=[
+      {l:'上午',items:day.morning,ic:'wb_sunny',color:'#3c00bd'},
+      {l:'午餐',meal:day.lunch,ic:'restaurant',color:'#ffdea3'},
+      {l:'下午',items:day.afternoon,ic:'wb_twilight',color:'#3c00bd'},
+      {l:'晚餐',meal:day.dinner,ic:'dinner_dining',color:'#ffdea3'},
+      {l:'晚间',items:day.evening,ic:'nightlight',color:'#3c00bd'}
+    ];
+    secs.forEach(s=>{
+      if (s.meal){ const m=s.meal;
+        h += `<div class="relative"><div class="absolute -left-[1.85rem] w-3.5 h-3.5 rounded-full" style="background:${s.color};border:2px solid #faf8fe"></div>
+          <div class="bg-tertiary-fixed/20 p-4 rounded-xl">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="material-symbols-outlined text-on-tertiary-fixed-variant text-base">${s.ic}</span>
+              <span class="text-[10px] font-bold text-on-tertiary-fixed-variant uppercase tracking-widest">${s.l}</span>
+              <span class="text-xs text-on-surface-variant">${m.time||''}</span>
+            </div>
+            <p class="text-sm font-bold text-on-surface">${m.name||''}</p>
+            ${m.recommend_dishes?`<p class="text-xs text-on-surface-variant mt-1">推荐：${m.recommend_dishes.join('、')}</p>`:''}
+            ${m.per_person?`<span class="text-xs font-bold text-on-tertiary-fixed-variant">人均 ${m.per_person}</span>`:''}
+          </div></div>`;
+      }
+      if (s.items?.length){ s.items.forEach(item=>{
+        h += `<div class="relative"><div class="absolute -left-[1.85rem] w-3.5 h-3.5 rounded-full" style="background:${s.color};border:2px solid #faf8fe"></div>
+          <div class="bg-surface-container-lowest p-4 rounded-xl ambient-shadow">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="material-symbols-outlined text-primary text-base">${s.ic}</span>
+              <span class="text-[10px] font-bold text-primary uppercase tracking-widest">${s.l}</span>
+              <span class="text-xs text-on-surface-variant">${item.time||''}</span>
+              ${item.duration?`<span class="text-[10px] text-on-surface-variant">· ${item.duration}</span>`:''}
+            </div>
+            <p class="text-sm font-bold text-on-surface">${item.name||''}</p>
+            ${item.activity?`<p class="text-xs text-on-surface-variant mt-1">${item.activity}</p>`:''}
+            ${item.highlight?`<p class="text-xs text-primary mt-1">✨ ${item.highlight}</p>`:''}
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              ${item.cost?`<span class="text-[10px] px-2 py-0.5 bg-tertiary-fixed/25 text-on-tertiary-fixed-variant rounded-full font-bold">💰${item.cost}</span>`:''}
+              ${item.transport?`<span class="text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full">🚇${item.transport}</span>`:''}
+              ${item.warning?`<span class="text-[10px] px-2 py-0.5 bg-error/10 text-error rounded-full">⚠️${item.warning}</span>`:''}
+            </div>
+          </div></div>`;
+      });}
+    });
+    if (day.alternatives?.length){
+      h += `<div class="relative"><div class="absolute -left-[1.85rem] w-3.5 h-3.5 rounded-full" style="background:#c9c3d9;border:2px solid #faf8fe"></div>
+        <div class="p-3 rounded-xl" style="border:1px dashed rgba(201,195,217,0.6)">
+          <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">🔄 备选方案</p>`;
+      day.alternatives.forEach(a=>{ h+=`<p class="text-xs text-on-surface-variant"><span class="font-bold text-on-surface">${a.name||''}</span> — ${a.condition||''}</p>`; });
+      h += `</div></div>`;
+    }
+    h += `</div></div>`;
+  });
+
+  // Accommodation
+  if (it.accommodation?.length){
+    h += `<h3 class="font-headline font-bold text-base text-on-surface flex items-center gap-2 pt-2">
+      <span class="material-symbols-outlined text-primary">hotel</span>住宿推荐
+    </h3><div class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type:x mandatory">`;
+    it.accommodation.forEach(a=>{
+      h += `<div class="flex-shrink-0 w-64 bg-surface-container-lowest p-4 rounded-2xl ambient-shadow" style="scroll-snap-align:start">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-bold text-on-surface">${a.name||''}</span>
+          ${a.type?`<span class="text-[10px] px-2 py-0.5 bg-secondary/10 text-secondary rounded-full font-bold">${a.type}</span>`:''}
+        </div>
+        ${a.price_range?`<p class="text-base font-extrabold text-on-tertiary-fixed-variant mb-1">💰 ${a.price_range}/晚</p>`:''}
+        ${a.area?`<p class="text-xs text-on-surface-variant">📍 ${a.area}</p>`:''}
+        ${a.why?`<p class="text-xs text-primary mt-1 italic">"${a.why}"</p>`:''}
+        ${a.tips?`<p class="text-[10px] text-on-surface-variant mt-2">💡 ${a.tips}</p>`:''}
+      </div>`;
+    });
+    h += `</div>`;
+  }
+
+  // Food guide
+  if (it.food_guide?.length){
+    h += `<h3 class="font-headline font-bold text-base text-on-surface flex items-center gap-2 pt-2">
+      <span class="material-symbols-outlined" style="color:#d93025">restaurant_menu</span>必吃美食清单
+    </h3><div class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type:x mandatory">`;
+    it.food_guide.forEach(f=>{
+      const sig = f.signature?.map(s=>`<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] rounded-full">${s}</span>`).join('')||'';
+      h += `<div class="flex-shrink-0 w-52 bg-surface-container-lowest p-4 rounded-2xl ambient-shadow" style="scroll-snap-align:start">
+        <p class="text-sm font-bold text-on-surface mb-1">${f.name||''}</p>
+        ${f.type?`<span class="text-[10px] px-2 py-0.5 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-full font-bold">${f.type}</span>`:''}
+        ${f.per_person?`<p class="text-base font-extrabold text-on-tertiary-fixed-variant mt-2">人均 ${f.per_person}</p>`:''}
+        ${sig?`<div class="flex flex-wrap gap-1 mt-2">${sig}</div>`:''}
+        ${f.tips?`<p class="text-[10px] mt-2" style="color:#d93025">💡 ${f.tips}</p>`:''}
+      </div>`;
+    });
+    h += `</div>`;
+  }
+
+  // Packing + booking
+  if (it.packing_tips?.length||it.booking_reminders?.length){
+    h += `<div class="bg-surface-container-low p-4 rounded-2xl space-y-2">`;
+    if (it.packing_tips?.length)       h += `<p class="text-xs text-on-surface-variant">🎒 <strong class="text-on-surface">打包建议：</strong>${it.packing_tips.join('、')}</p>`;
+    if (it.booking_reminders?.length)  h += `<p class="text-xs text-on-surface-variant">📋 <strong class="text-on-surface">需提前预约：</strong>${it.booking_reminders.join('、')}</p>`;
+    h += `</div>`;
+  }
+
+  // CTAs
+  h += `<div class="flex flex-wrap gap-3">
+    <button onclick="openMap()" class="inline-flex items-center gap-2 px-5 py-2.5 primary-gradient text-on-primary rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+      <span class="material-symbols-outlined text-base">map</span>查看景点地图
+    </button>`;
+  if (it.map_url){
+    h += `<a href="${it.map_url}" target="_blank" class="inline-flex items-center gap-2 px-5 py-2.5 bg-surface-container-high text-on-surface rounded-full text-sm font-bold hover:bg-surface-container-highest transition-all">
+      <span class="material-symbols-outlined text-base">open_in_new</span>高德导航
+    </a>`;
+  }
+  h += `</div>`;
+  h += `</div></div>`; // close flex-1 + outer
+  w.innerHTML = h; chatArea.appendChild(w); scrollBottom();
+}
+function showDay(idx){
+  document.querySelectorAll('.day-content').forEach((el,i)=>el.classList.toggle('hidden', i!==idx));
+  document.querySelectorAll('.day-tab').forEach((el,i)=>{
+    el.className = el.className.replace(/primary-gradient text-on-primary shadow-lg shadow-primary\/20|bg-surface-container-high text-on-surface hover:bg-surface-container-highest/g,'').trim();
+    el.classList.add(...(i===idx?['primary-gradient','text-on-primary','shadow-lg','shadow-primary/20']:['bg-surface-container-high','text-on-surface','hover:bg-surface-container-highest']));
+  });
+}
+
+// ── Helpers ──
+function setLoading(v){ isLoading=v; inputEl.disabled=v; sendBtn.disabled = v || !inputEl.value.trim(); }
+function scrollBottom(){ requestAnimationFrame(()=>{ chatArea.scrollTop = chatArea.scrollHeight; }); }
+
+function resetChat(){
+  sessionId=null; currentSpots=[]; selectedIdx.clear(); isLoading=false; lastState='init';
+  hideThinking(); clearQuickChips(); chatArea.innerHTML='';
+  // restore welcome
+  const clone = welcomeEl.cloneNode(true); clone.id='welcome';
+  chatArea.appendChild(clone);
+  // reset profile
+  document.getElementById('profile-name').textContent='旅行者';
+  document.getElementById('profile-tier').textContent='Curator · 未开始';
+  document.getElementById('profile-tier').style.color='';
+  document.getElementById('profile-avatar').textContent='旅';
+  inputEl.value=''; inputEl.disabled=false; sendBtn.disabled=true;
+  initSession();
+}
+
+// ── Map ──
+const TYPE_MARKER_COLORS = {'景点':'#3c00bd','餐饮':'#d93025','购物':'#f59e0b','娱乐':'#7659f6','住宿':'#22c55e'};
+function openMap(){
+  if (mapSpots.length===0) return;
+  const modal=document.getElementById('map-modal'); modal.classList.remove('hidden'); document.body.style.overflow='hidden';
+  mapInstance = new AMap.Map('map-container',{zoom:12,viewMode:'2D'});
+  const markers=[], info=new AMap.InfoWindow({offset:new AMap.Pixel(0,-30)});
+  mapSpots.forEach((s,i)=>{
+    const color = TYPE_MARKER_COLORS[s.type] || '#3c00bd';
+    const m = new AMap.Marker({
+      position: new AMap.LngLat(parseFloat(s.lng), parseFloat(s.lat)),
+      title: s.name,
+      label: { content:`<span style="font-size:11px;font-weight:700;color:${color}">${i+1}</span>`, direction:'top' }
+    });
+    m.on('click',()=>{
+      info.setContent(`<div style="padding:8px;min-width:120px">
+        <div style="font-weight:700;font-size:14px;color:#1a1b1f;margin-bottom:4px">${s.name}</div>
+        <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:${color};background:${color}1a">${s.type}</span>
+      </div>`);
+      info.open(mapInstance, m.getPosition());
+    });
+    markers.push(m);
+  });
+  mapInstance.add(markers); mapInstance.setFitView(markers, false, [80,80,80,80]);
+}
+function closeMap(){
+  document.getElementById('map-modal').classList.add('hidden'); document.body.style.overflow='';
+  if (mapInstance){ mapInstance.destroy(); mapInstance=null; }
+}
+document.addEventListener('keydown', e=>{ if (e.key==='Escape' && !document.getElementById('map-modal').classList.contains('hidden')) closeMap(); });
+
+initSession();
+</script>
+</body></html>
