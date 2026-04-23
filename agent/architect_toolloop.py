@@ -188,6 +188,9 @@ def _chat(
                 temperature=temperature,
                 response_format={"type": "json_object"},
                 timeout=timeout,
+                # Qwen3 系列默认开 thinking,长 prompt 下单次 60s+ 超时。
+                # 规划任务不需要长链思考,关掉后速度提升 5x。
+                extra_body={"enable_thinking": False},
             )
             content = resp.choices[0].message.content
             if not content:
