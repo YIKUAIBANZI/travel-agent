@@ -370,6 +370,38 @@ def _enrich_demo(raw: dict) -> dict:
     return raw
 
 
+@app.post("/plan/check-pois")
+async def check_pois(body: dict):
+    """批量检查 POI 状态(规则+Exa+LLM)。并发最多 5。
+
+    body: {"pois": [{"name":..., "district":..., "type":..., "date":"YYYY-MM-DD"}, ...]}
+    返回: {"results": [{query, date, status, confidence, reason, sources, advice}]}
+    """
+    import asyncio
+
+    from tools.check_poi_status import check_poi
+
+    pois = body.get("pois") or []
+    if not pois or not isinstance(pois, list):
+        from fastapi import HTTPException
+
+        raise HTTPException(400, "pois required (list)")
+    if len(pois) > 30:
+        from fastapi import HTTPException
+
+        raise HTTPException(400, "最多单次检查 30 个")
+
+    sem = asyncio.Semaphore(5)
+
+    async def _one(p):
+        async with sem:
+            date = p.get("date") or ""
+            return await asyncio.to_thread(check_poi, p, date)
+
+    results = await asyncio.gather(*[_one(p) for p in pois])
+    return {"results": results, "total": len(results)}
+
+
 @app.post("/plan/resolve-poi")
 def resolve_poi(body: dict):
     """前端添加 stop 时用:给个名字,返回坐标+地区(复用 fallback_amap_search)。"""

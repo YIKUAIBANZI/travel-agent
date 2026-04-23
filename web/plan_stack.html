@@ -247,6 +247,35 @@
   .map-controls button:hover { background: #F5EFE4; }
   .map-controls .divider { height: 1px; background: var(--line); }
 
+  /* Status badge(景点检查)── */
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; padding: 1px 6px; border-radius: 8px;
+    font-family: 'Geist Mono', monospace; font-weight: 600;
+    letter-spacing: 0.03em; cursor: help; white-space: nowrap;
+  }
+  .status-badge.ok          { background: #E6F4EA; color: #1E7D41; }
+  .status-badge.closed      { background: #FDECEA; color: #B8221A; }
+  .status-badge.appointment { background: #E3F2FD; color: #1565C0; }
+  .status-badge.limited     { background: #FFF3E0; color: #B05A00; }
+  .status-badge.unknown     { background: #F5F5F5; color: #6A5A45; }
+
+  .status-tooltip {
+    position: absolute; z-index: 1000; max-width: 280px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(60,40,20,.18);
+    font-size: 12px; color: var(--ink); line-height: 1.5;
+  }
+  .status-tooltip .st-reason { margin-bottom: 6px; }
+  .status-tooltip .st-advice { color: var(--accent); font-style: italic; margin-top: 6px; }
+  .status-tooltip .st-sources a {
+    display: block; color: var(--muted); font-size: 11px;
+    text-decoration: none; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .status-tooltip .st-sources a:hover { color: var(--ink); }
+
   /* Share toast */
   .toast {
     position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
@@ -358,6 +387,9 @@
       padding: 0 10px; font-size: 13px; width: 200px;
       background: #fff; color: var(--ink); outline: none;
     " />
+    <button class="tb-btn" id="check-btn" title="检查当前日所有景点状态(预约/限流/关闭)">
+      🔍 检查景点
+    </button>
     <div class="spacer"></div>
     <button class="tb-btn primary" id="share-btn">分享</button>
   </div>
@@ -445,7 +477,77 @@ const state = {
   dragStop: null,    // {day, n} 当前在拖的 stop
   dragOverIdx: null, // 目标放置索引
   search: '',        // 搜索关键字
+  poiStatus: {},     // `${day}-${n}` -> {status, confidence, reason, sources, advice}
+  checking: false,
 };
+
+// ── 景点状态检查 ───────────────────────────
+const STATUS_LABEL = { ok: '✓ OK', closed: '✗ 关闭', appointment: '需预约', limited: '限流', unknown: '? 未知' };
+
+async function checkCurrentDay() {
+  if (state.checking) return;
+  const d = state.data.days.find(x => x.id === state.expandedDay);
+  if (!d || !d.stops.length) { showToast('当前日没有景点可检查'); return; }
+  state.checking = true;
+  showToast('检查中...(每个点 ~5-10 秒)');
+  const payload = {
+    pois: d.stops.map(s => ({
+      name: s.name, district: s.note, type: s.cat, date: d.date,
+    })),
+  };
+  try {
+    const resp = await fetch('/plan/check-pois', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    // 写入 state(按 day-n 键)
+    d.stops.forEach((s, i) => {
+      const r = data.results[i];
+      if (r) state.poiStatus[`${d.id}-${s.n}`] = r;
+    });
+    const closed = data.results.filter(r => r.status === 'closed').length;
+    const needs = data.results.filter(r => r.status === 'appointment' || r.status === 'limited').length;
+    showToast(`检查完成:${closed} 关闭,${needs} 需预约/限流`);
+    renderAll();
+  } catch (e) {
+    showToast('检查失败:' + e.message);
+  } finally {
+    state.checking = false;
+  }
+}
+
+function statusBadgeHTML(status) {
+  if (!status || !STATUS_LABEL[status]) return '';
+  return `<span class="status-badge ${status}">${STATUS_LABEL[status]}</span>`;
+}
+
+function showStatusTooltip(row, info) {
+  if (!info) return;
+  const old = document.getElementById('status-tt');
+  if (old) old.remove();
+  const tip = document.createElement('div');
+  tip.id = 'status-tt';
+  tip.className = 'status-tooltip';
+  const rect = row.getBoundingClientRect();
+  tip.style.left = Math.max(8, rect.right - 280) + 'px';
+  tip.style.top = (rect.bottom + 6) + 'px';
+  tip.innerHTML = `
+    <div class="st-reason"><b>${STATUS_LABEL[info.status] || info.status}</b> · 置信 ${(info.confidence * 100).toFixed(0)}%</div>
+    <div>${info.reason || ''}</div>
+    ${info.advice ? `<div class="st-advice">💡 ${info.advice}</div>` : ''}
+    ${info.sources && info.sources.length ? `
+      <div class="st-sources">
+        ${info.sources.slice(0, 3).map(u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).join('')}
+      </div>` : ''}
+  `;
+  document.body.appendChild(tip);
+}
+function hideStatusTooltip() {
+  const old = document.getElementById('status-tt');
+  if (old) old.remove();
+}
 
 // ── 搜索 / 编辑 name ─────────────────────────
 function matchSearch(s) {
@@ -721,6 +823,8 @@ function mkStops(d) {
       ? `background-image: url('/img-proxy?url=${encodeURIComponent(s.image)}')`
       : `background: linear-gradient(135deg, ${s.palette[0]} 0%, ${s.palette[1]} 100%)`;
     const photoClass = s.image ? 'photo has-img' : 'photo';
+    const statusInfo = state.poiStatus[`${d.id}-${s.n}`];
+    const badgeHtml = statusInfo ? statusBadgeHTML(statusInfo.status) : '';
     row.innerHTML = `
       <div class="drag-handle" title="拖拽排序">
         <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor"><circle cx="2" cy="3" r="1"/><circle cx="6" cy="3" r="1"/><circle cx="2" cy="7" r="1"/><circle cx="6" cy="7" r="1"/><circle cx="2" cy="11" r="1"/><circle cx="6" cy="11" r="1"/></svg>
@@ -731,6 +835,7 @@ function mkStops(d) {
           <div class="num" style="color:${d.hue.ink}; border-color:${d.hue.mid};">${s.n}</div>
           <div class="name ${s.closed ? 'closed' : ''}">${s.name}</div>
           <span class="cat-chip" style="color:${d.hue.ink}; background:${d.hue.bg};">${s.cat}</span>
+          ${badgeHtml}
         </div>
         <div class="note">${s.note || ''}</div>
         <div class="dist-line">${s.lat && s.lng ? `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}` : '—'}</div>
@@ -795,6 +900,12 @@ function mkStops(d) {
       const newName = prompt('改成什么名字?', s.name);
       if (newName && newName.trim()) renameStop(d.id, s.n, newName.trim());
     };
+    // Status badge hover tooltip
+    const badge = row.querySelector('.status-badge');
+    if (badge && statusInfo) {
+      badge.onmouseenter = (e) => { e.stopPropagation(); showStatusTooltip(row, statusInfo); };
+      badge.onmouseleave = () => hideStatusTooltip();
+    }
 
     wrap.appendChild(row);
   });
@@ -976,6 +1087,7 @@ document.getElementById('search').oninput = (e) => {
   state.search = e.target.value.trim();
   renderStack();
 };
+document.getElementById('check-btn').onclick = () => checkCurrentDay();
 document.getElementById('share-btn').onclick = () => {
   navigator.clipboard.writeText(location.href)
     .then(() => showToast('已复制链接到剪贴板'))
