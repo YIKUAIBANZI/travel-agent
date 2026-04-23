@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>行程可视化 · travel-agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- 高德 Web JS SDK:后端注入 key -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=__AMAP_WEB_JS_KEY__&plugin=AMap.Polyline,AMap.Marker,AMap.InfoWindow"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: -apple-system, "PingFang SC", sans-serif; color: #1f2937; }
+
+    /* ── 顶部栏 ─────────────────────────────────── */
+    .header {
+      height: 56px; padding: 0 24px;
+      display: flex; align-items: center; gap: 16px;
+      border-bottom: 1px solid #e5e7eb; background: #fff;
+    }
+    .header .logo { font-weight: 700; color: #2563eb; font-size: 18px; }
+    .header .title { font-size: 15px; color: #374151; font-weight: 500; }
+    .header .sub { color: #6b7280; font-size: 13px; }
+
+    /* ── 主布局 ─────────────────────────────────── */
+    .main { display: flex; height: calc(100% - 56px); }
+    .sidebar {
+      width: 360px; border-right: 1px solid #e5e7eb; background: #fafafa;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .map-wrap { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* ── 日期 tab ──────────────────────────────── */
+    .tabs {
+      padding: 12px 16px 0; display: flex; gap: 6px; overflow-x: auto;
+      border-bottom: 1px solid #e5e7eb; background: #fafafa;
+    }
+    .tab {
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 13px; cursor: pointer; white-space: nowrap;
+      color: #6b7280; border: 1px solid transparent;
+    }
+    .tab:hover { background: #f3f4f6; }
+    .tab.active {
+      background: #1f2937; color: #fff; border-color: #1f2937;
+    }
+
+    /* ── 日期卡片列表 ──────────────────────────── */
+    .days { overflow-y: auto; padding: 16px; flex: 1; }
+    .day-card {
+      background: #fff; border-radius: 10px; padding: 14px;
+      margin-bottom: 12px; border-left: 4px solid var(--day-color, #2563eb);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .day-card.selected { box-shadow: 0 0 0 2px var(--day-color); }
+    .day-card .day-head {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 600; font-size: 14px; margin-bottom: 6px;
+    }
+    .day-card .date-chip {
+      background: var(--day-color); color: #fff;
+      padding: 2px 8px; border-radius: 10px; font-size: 12px;
+    }
+    .day-card .meta { color: #6b7280; font-size: 12px; margin-bottom: 10px; }
+    .day-card .risk-flag {
+      display: inline-block; margin-left: 6px;
+      background: #fef2f2; color: #b91c1c;
+      padding: 1px 6px; border-radius: 4px; font-size: 11px;
+    }
+    .day-card .free-flag {
+      display: inline-block; margin-left: 6px;
+      background: #eff6ff; color: #1d4ed8;
+      padding: 1px 6px; border-radius: 4px; font-size: 11px;
+    }
+    .poi {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0; cursor: pointer; border-radius: 6px;
+      transition: background .15s;
+    }
+    .poi:hover { background: #f3f4f6; }
+    .poi.active { background: #f3f4f6; }
+    .poi .num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--day-color, #2563eb); color: #fff;
+      font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .poi .body { flex: 1; min-width: 0; }
+    .poi .name { font-size: 13px; color: #111827; font-weight: 500; }
+    .poi .name.closed { color: #b91c1c; text-decoration: line-through; }
+    .poi .dist { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+    .free-day-note {
+      color: #6b7280; font-size: 12px; padding: 8px 0 4px; font-style: italic;
+    }
+
+    .empty {
+      padding: 40px 16px; text-align: center; color: #9ca3af;
+    }
+
+    /* ── 地图上的数字 marker ────────────────────── */
+    .map-marker {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--mk-color, #2563eb); color: #fff;
+      font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+      cursor: pointer;
+    }
+    .map-marker.big { width: 34px; height: 34px; font-size: 16px; }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="logo">✈️ travel-agent</div>
+  <div>
+    <div class="title" id="trip-title">加载中...</div>
+    <div class="sub" id="trip-sub"></div>
+  </div>
+</div>
+
+<div class="main">
+  <aside class="sidebar">
+    <div class="tabs" id="tabs"></div>
+    <div class="days" id="days"></div>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+// ── 6 天 6 色 ─────────────────────────────────
+const DAY_COLORS = ['#2563eb','#dc2626','#059669','#d97706','#7c3aed','#0891b2','#db2777','#65a30d'];
+
+let map = null;
+let state = {
+  data: null,
+  view: 'all',   // 'all' | day number
+  overlays: [],  // 当前地图上的 markers + polylines
+  dayColor: {},  // day -> color
+};
+
+// ── 数据加载 ─────────────────────────────────
+async function loadPlan() {
+  const resp = await fetch('/plan/demo');
+  if (!resp.ok) {
+    document.getElementById('trip-title').textContent = '加载失败';
+    return null;
+  }
+  return await resp.json();
+}
+
+// ── 渲染左侧 ─────────────────────────────────
+function renderHeader(data) {
+  document.getElementById('trip-title').textContent =
+    `${data.city} ${data.days} 日游`;
+  document.getElementById('trip-sub').textContent = data.itinerary_summary || '';
+}
+
+function renderTabs(data) {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  const all = mkTab('总览', 'all');
+  tabs.appendChild(all);
+  data.day_clusters.forEach(d => {
+    const label = d.date.slice(5).replace('-', '月') + '日';
+    tabs.appendChild(mkTab(label, d.day));
+  });
+  updateTabActive();
+}
+
+function mkTab(label, view) {
+  const el = document.createElement('div');
+  el.className = 'tab';
+  el.textContent = label;
+  el.dataset.view = view;
+  el.onclick = () => { state.view = view; updateTabActive(); renderDays(); redrawMap(); };
+  return el;
+}
+function updateTabActive() {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', String(t.dataset.view) === String(state.view));
+  });
+}
+
+function renderDays() {
+  const box = document.getElementById('days');
+  box.innerHTML = '';
+  const clusters = state.view === 'all'
+    ? state.data.day_clusters
+    : state.data.day_clusters.filter(d => d.day === state.view);
+
+  clusters.forEach(d => box.appendChild(mkDayCard(d)));
+}
+
+function mkDayCard(d) {
+  const color = state.dayColor[d.day];
+  const card = document.createElement('div');
+  card.className = 'day-card';
+  card.style.setProperty('--day-color', color);
+
+  const head = document.createElement('div');
+  head.className = 'day-head';
+  head.innerHTML = `
+    <span class="date-chip">Day ${d.day}</span>
+    <span>${d.date} · ${d.pois.length} 点</span>
+    ${d.is_risk_day ? '<span class="risk-flag">🚨 高峰日</span>' : ''}
+    ${d.is_free_day ? '<span class="free-flag">自由日</span>' : ''}
+  `;
+  card.appendChild(head);
+
+  if (d.is_free_day || d.pois.length === 0) {
+    const note = document.createElement('div');
+    note.className = 'free-day-note';
+    note.textContent = '本日留白,可从其他天匀过来或自由安排';
+    card.appendChild(note);
+    return card;
+  }
+
+  d.pois.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'poi';
+    row.dataset.day = d.day;
+    row.dataset.idx = i;
+    const closed = /暂停营业|停业/.test(p.name || '');
+    row.innerHTML = `
+      <div class="num">${i + 1}</div>
+      <div class="body">
+        <div class="name ${closed ? 'closed' : ''}">${p.name || '(无名)'}</div>
+        <div class="dist">${p.district || ''} · ${p.query || ''}</div>
+      </div>
+    `;
+    row.onclick = () => focusPoi(d.day, i, p);
+    card.appendChild(row);
+  });
+  return card;
+}
+
+// ── 地图 ─────────────────────────────────────
+function initMap() {
+  map = new AMap.Map('map', {
+    zoom: 11,
+    center: [113.97, 22.54],   // 深圳中心
+    viewMode: '2D',
+  });
+}
+
+function clearOverlays() {
+  state.overlays.forEach(o => map.remove(o));
+  state.overlays = [];
+}
+
+function mkNumberMarker(p, i, color, big = false) {
+  return new AMap.Marker({
+    position: [Number(p.lng), Number(p.lat)],
+    offset: new AMap.Pixel(big ? -17 : -13, big ? -17 : -13),
+    content: `<div class="map-marker ${big ? 'big' : ''}" style="--mk-color:${color}">${i + 1}</div>`,
+    extData: { name: p.name, day: p._day, idx: i },
+  });
+}
+
+function redrawMap() {
+  if (!map) return;
+  clearOverlays();
+
+  const clusters = state.view === 'all'
+    ? state.data.day_clusters
+    : state.data.day_clusters.filter(d => d.day === state.view);
+
+  const bounds = [];
+
+  clusters.forEach(d => {
+    const color = state.dayColor[d.day];
+    const pts = d.pois.filter(p => p.lat && p.lng);
+
+    // 路径连线(同一天的 POI 按顺序连)
+    if (pts.length >= 2) {
+      const pl = new AMap.Polyline({
+        path: pts.map(p => [Number(p.lng), Number(p.lat)]),
+        strokeColor: color,
+        strokeWeight: 4,
+        strokeOpacity: 0.85,
+        lineJoin: 'round',
+      });
+      map.add(pl);
+      state.overlays.push(pl);
+    }
+
+    // Markers(带数字)
+    pts.forEach((p, i) => {
+      p._day = d.day;
+      const mk = mkNumberMarker(p, i, color);
+      mk.on('click', () => openInfo(mk, p, d.day));
+      map.add(mk);
+      state.overlays.push(mk);
+      bounds.push([Number(p.lng), Number(p.lat)]);
+    });
+  });
+
+  if (bounds.length > 0) {
+    map.setFitView(state.overlays, false, [40, 40, 40, 40]);
+  }
+}
+
+function openInfo(marker, p, day) {
+  const info = new AMap.InfoWindow({
+    isCustom: true,
+    anchor: 'bottom-center',
+    offset: new AMap.Pixel(0, -20),
+    content: `
+      <div style="background:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:180px">
+        <div style="font-size:11px;color:${state.dayColor[day]};font-weight:600">Day ${day}</div>
+        <div style="font-size:14px;font-weight:600;margin-top:2px">${p.name}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:4px">${p.district || ''}</div>
+      </div>`,
+  });
+  info.open(map, marker.getPosition());
+}
+
+function focusPoi(day, idx, p) {
+  if (!map || !p.lat || !p.lng) return;
+  map.setZoomAndCenter(15, [Number(p.lng), Number(p.lat)]);
+  // 找到对应 marker 开 info
+  const mk = state.overlays.find(o =>
+    o.getExtData && o.getExtData().name === p.name && o.getExtData().day === day
+  );
+  if (mk) openInfo(mk, p, day);
+}
+
+// ── 启动 ─────────────────────────────────────
+(async function () {
+  const data = await loadPlan();
+  if (!data) return;
+  state.data = data;
+  data.day_clusters.forEach((d, i) => {
+    state.dayColor[d.day] = DAY_COLORS[i % DAY_COLORS.length];
+  });
+  renderHeader(data);
+  renderTabs(data);
+  renderDays();
+  initMap();
+  redrawMap();
+})();
+</script>
+</body>
+</html>

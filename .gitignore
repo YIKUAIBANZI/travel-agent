@@ -3,6 +3,7 @@ venv/
 .env.local
 data/raw/*.json
 data/cleaned/*.json
+# data/demo/ 可以提交(用于展示)
 __pycache__/
 *.pyc
 *.pyo

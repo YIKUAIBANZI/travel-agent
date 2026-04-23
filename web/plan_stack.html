@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>行程 · Card Stack · travel-agent</title>
+<meta name="viewport" content="width=1440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://webapi.amap.com/maps?v=2.0&key=__AMAP_WEB_JS_KEY__&plugin=AMap.Polyline,AMap.Marker"></script>
+<style>
+  :root {
+    --accent: #D87040;
+    --bg: #F5EFE4;
+    --card: #FFFDF7;
+    --ink: #2A2520;
+    --muted: #8A7A60;
+    --line: #E8DDC9;
+  }
+  html, body { margin: 0; padding: 0; background: #E6DFCF; font-family: 'Geist', sans-serif; height: 100%; color: var(--ink); }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(138,122,96,0.25); border-radius: 4px; }
+
+  .app {
+    height: 100vh; background: var(--bg);
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
+  }
+
+  /* ── Top bar ────────────────────────────────────────── */
+  .topbar {
+    padding: 14px 24px; display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,253,247,0.9); backdrop-filter: blur(6px);
+    position: relative; z-index: 10;
+  }
+  .topbar .logo {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--accent);
+    display: grid; place-items: center;
+    box-shadow: 0 3px 10px rgba(60,40,20,.15);
+  }
+  .topbar .logo svg { width: 18px; height: 18px; color: #fff; }
+  .topbar .title {
+    font-family: 'Instrument Serif', serif; font-size: 22px;
+    line-height: 1.15; letter-spacing: -0.01em; white-space: nowrap;
+  }
+  .topbar .subtitle {
+    font-size: 10.5px; color: var(--muted); margin-top: 3px;
+    font-family: 'Geist Mono', monospace; letter-spacing: 0.05em; white-space: nowrap;
+  }
+  .topbar .spacer { flex: 1; }
+  .tb-btn {
+    height: 32px; min-width: 32px; padding: 0 8px;
+    border-radius: 9px; border: 1px solid #E0D4BA;
+    background: #fff; color: #6A5A45; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    font-size: 12px;
+  }
+  .tb-btn.primary {
+    background: var(--accent); color: #fff; border: none;
+    padding-inline: 14px; gap: 6px; font-size: 12px; font-weight: 500;
+  }
+
+  /* ── Main stage ────────────────────────────────────── */
+  .stage { flex: 1; position: relative; min-height: 0; }
+  .map-layer { position: absolute; inset: 0; }
+  #map { width: 100%; height: 100%; filter: saturate(.85) sepia(.08); }
+
+  /* ── Card stack on left ─────────────────────────────── */
+  .stack {
+    position: absolute; left: 24px; top: 20px; bottom: 20px;
+    width: 380px; display: flex; flex-direction: column; gap: 10px; z-index: 5;
+  }
+  .day-card {
+    background: var(--card); border-radius: 18px;
+    border: 1px solid var(--line);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.38s cubic-bezier(0.3, 1.35, 0.5, 1);
+    box-shadow: 0 4px 14px -4px rgba(60,40,20,.12);
+    flex: 0 0 auto; min-height: 72px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    border-left-width: 4px; border-left-style: solid;
+  }
+  .day-card:hover:not(.expanded) { transform: translateX(0) rotate(0) !important; }
+  .day-card.expanded {
+    cursor: default; padding: 16px 18px;
+    flex: 1; min-height: 0;
+    box-shadow: 0 20px 48px -8px rgba(60,40,20,.16), 0 4px 12px rgba(60,40,20,.06);
+    transform: rotate(0deg) translateX(0) !important;
+  }
+  .day-card[data-rot="-1.2"]:not(.expanded) { transform: rotate(-1.2deg) translateX(-6px); }
+  .day-card[data-rot="0.8"]:not(.expanded)  { transform: rotate(0.8deg)  translateX( 6px); }
+  .day-card[data-rot="-0.6"]:not(.expanded) { transform: rotate(-0.6deg) translateX(-6px); }
+  .day-card[data-rot="1.1"]:not(.expanded)  { transform: rotate(1.1deg)  translateX( 6px); }
+  .day-card[data-rot="-0.8"]:not(.expanded) { transform: rotate(-0.8deg) translateX(-6px); }
+  .day-card[data-rot="0.5"]:not(.expanded)  { transform: rotate(0.5deg)  translateX( 6px); }
+
+  .day-head { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .day-num {
+    width: 38px; height: 38px; border-radius: 11px;
+    display: grid; place-items: center;
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 22px; font-weight: 500;
+  }
+  .day-theme {
+    font-family: 'Instrument Serif', serif;
+    font-size: 18px; font-style: italic; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .day-meta {
+    font-size: 10.5px; color: var(--muted); margin-top: 3px;
+    font-family: 'Geist Mono', monospace; letter-spacing: 0.03em;
+  }
+  .day-flags { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .flag {
+    font-size: 9.5px; padding: 1px 6px; border-radius: 8px;
+    font-family: 'Geist Mono', monospace; letter-spacing: 0.05em;
+  }
+  .flag.risk { background: #FEF2F2; color: #B91C1C; }
+  .flag.free { background: #EFF6FF; color: #1D4ED8; }
+
+  .mini-photos { display: flex; gap: 4px; margin-top: 8px; }
+  .mini-photo {
+    width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0;
+    background-size: cover; background-position: center;
+  }
+  .mini-photo.more {
+    background: #F2EADC; color: var(--muted); font-size: 10px;
+    display: grid; place-items: center; font-weight: 500;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  /* ── Stop list (expanded) ───────────────────────────── */
+  .stops { margin-top: 14px; flex: 1; overflow-y: auto; padding-right: 4px; margin-right: -4px; }
+  .stop {
+    display: flex; gap: 12px; padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 3px; cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .stop.active { box-shadow: inset 0 0 0 1.5px currentColor; }
+  .stop .photo {
+    width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0;
+    position: relative; overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    background-size: cover; background-position: center;
+  }
+  .stop .photo::after {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,.08) 6px, rgba(255,255,255,.08) 7px);
+  }
+  .stop .photo.has-img::after { display: none; }
+
+  /* 天气 badge */
+  .weather-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #5A4F40;
+    background: rgba(255,255,255,.6);
+    padding: 3px 8px; border-radius: 20px;
+    border: 1px solid rgba(138,122,96,.3);
+    white-space: nowrap;
+  }
+  .weather-badge svg { flex-shrink: 0; }
+  .stop .body { flex: 1; min-width: 0; }
+  .stop .line1 { display: flex; align-items: center; gap: 8px; }
+  .stop .num {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 600; flex-shrink: 0;
+    background: #fff;
+  }
+  .stop .name {
+    font-size: 14px; font-weight: 500; letter-spacing: -0.005em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--ink);
+  }
+  .stop .name.closed { color: #B91C1C; text-decoration: line-through; }
+  .stop .cat-chip {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    letter-spacing: 0.03em; font-family: 'Geist Mono', monospace; font-weight: 500;
+  }
+  .stop .note {
+    font-size: 12px; color: #5A4F40; margin-top: 4px;
+    line-height: 1.4; padding-left: 30px;
+  }
+  .stop .dist-line {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 5px; padding-left: 30px;
+    font-size: 11px; color: var(--muted); font-feature-settings: 'tnum';
+  }
+  .stop .actions {
+    display: flex; flex-direction: column; gap: 4px;
+    align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .stop:hover .actions { opacity: 1; }
+  .stop .drag-handle {
+    width: 10px; display: flex; align-items: center; justify-content: center;
+    cursor: grab; opacity: 0; transition: opacity .15s; color: var(--muted);
+  }
+  .stop:hover .drag-handle { opacity: .5; }
+  .stop.dragging { opacity: .4; }
+  .drop-indicator {
+    height: 2.5px; border-radius: 2px; margin: 2px 8px;
+  }
+  .icon-btn {
+    width: 26px; height: 26px; border: none;
+    background: rgba(255,255,255,.9); border-radius: 7px;
+    cursor: pointer; display: grid; place-items: center;
+    transition: background .15s;
+  }
+  .icon-btn:hover { background: #fff; }
+  .icon-btn.delete { color: #B85848; }
+  .icon-btn.edit { color: #6A5A45; }
+
+  .add-stop-btn {
+    width: 100%; margin-top: 8px; padding: 10px;
+    border-radius: 12px; border: 1.5px dashed var(--muted);
+    background: transparent;
+    font-family: 'Instrument Serif', serif; font-style: italic; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    color: inherit;
+  }
+  .add-stop-btn:hover { background: rgba(255,255,255,.4); }
+
+  /* 地图控件 */
+  .map-controls {
+    position: absolute; bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 0;
+    background: var(--card); border-radius: 10px;
+    padding: 4px; border: 1px solid var(--line);
+    box-shadow: 0 4px 12px rgba(60,40,20,.1); z-index: 5;
+  }
+  .map-controls button {
+    width: 30px; height: 30px; border-radius: 7px; border: none;
+    background: transparent; color: #6A5A45;
+    cursor: pointer; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .map-controls button:hover { background: #F5EFE4; }
+  .map-controls .divider { height: 1px; background: var(--line); }
+
+  /* Share toast */
+  .toast {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    padding: 10px 18px; border-radius: 10px; font-size: 13px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.2); z-index: 100;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.visible { opacity: 1; }
+
+  /* ── Right-side panels ──────────────────────────────── */
+  .right-panels {
+    position: absolute; right: 20px; top: 20px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 5;
+  }
+  .summary-panel {
+    background: rgba(255,253,247,.95); backdrop-filter: blur(6px);
+    border-radius: 14px; padding: 14px 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 6px 18px -4px rgba(60,40,20,.1);
+    min-width: 220px;
+  }
+  .summary-label {
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    font-weight: 600; font-family: 'Geist Mono', monospace;
+    margin-bottom: 10px; white-space: nowrap;
+  }
+  .summary-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;
+  }
+  .summary-cell {
+    padding: 6px 10px; border-radius: 9px;
+  }
+  .summary-cell .lbl {
+    font-size: 9.5px; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .summary-cell .val {
+    font-size: 14px; font-weight: 500; margin-top: 1px;
+    font-feature-settings: 'tnum';
+  }
+  .legend-panel {
+    background: rgba(255,253,247,.95); backdrop-filter: blur(6px);
+    border-radius: 12px; padding: 10px 14px;
+    border: 1px solid var(--line);
+    box-shadow: 0 4px 12px -4px rgba(60,40,20,.08);
+    font-size: 11px;
+  }
+  .legend-title {
+    font-size: 9.5px; letter-spacing: 0.12em; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 7px;
+    font-family: 'Geist Mono', monospace;
+  }
+  .legend-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+    cursor: pointer;
+  }
+  .legend-row.dim { opacity: .55; }
+  .legend-row .bar { width: 14px; height: 3px; border-radius: 2px; }
+  .legend-row .num { font-weight: 500; }
+  .legend-row .theme { color: var(--muted); margin-left: 2px; font-size: 10.5px; }
+
+  /* ── Map markers ───────────────────────────────────── */
+  .map-pin {
+    width: 28px; height: 28px; border-radius: 50%;
+    color: #fff; font-weight: 700; font-size: 13px;
+    font-family: 'Geist', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .map-pin.active {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 6px rgba(216,112,64,.25), 0 4px 12px rgba(0,0,0,.35);
+    z-index: 1000;
+  }
+  .map-pin.dim { opacity: .35; }
+
+  .pin-popover {
+    background: var(--card); border-radius: 12px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(60,40,20,.18);
+    min-width: 180px; max-width: 240px;
+    pointer-events: none;
+  }
+  .pin-popover .pp-name {
+    font-size: 13px; font-weight: 500; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pin-popover .pp-meta {
+    font-size: 10.5px; color: var(--muted); margin-top: 2px;
+    font-family: 'Geist Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L15 9 L22 10 L17 15 L18 22 L12 18 L6 22 L7 15 L2 10 L9 9 Z"/></svg>
+    </div>
+    <div>
+      <div class="title" id="trip-title">加载中</div>
+      <div class="subtitle" id="trip-sub"></div>
+    </div>
+    <input id="search" type="text" placeholder="搜景点 / 餐厅..." style="
+      height: 32px; border: 1px solid #E0D4BA; border-radius: 9px;
+      padding: 0 10px; font-size: 13px; width: 200px;
+      background: #fff; color: var(--ink); outline: none;
+    " />
+    <div class="spacer"></div>
+    <button class="tb-btn primary" id="share-btn">分享</button>
+  </div>
+
+  <div class="stage">
+    <div class="map-layer"><div id="map"></div></div>
+    <div class="stack" id="stack"></div>
+    <div class="right-panels">
+      <div class="summary-panel" id="summary"></div>
+      <div class="legend-panel" id="legend"></div>
+    </div>
+    <div class="map-controls">
+      <button id="mc-zoom-in" title="放大">＋</button>
+      <div class="divider"></div>
+      <button id="mc-zoom-out" title="缩小">−</button>
+      <div class="divider"></div>
+      <button id="mc-reset" title="重置视野">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v1M12 20v1M3 12h1M20 12h1M5.6 5.6l.7.7M17.7 17.7l.7.7M5.6 18.4l.7-.7M17.7 6.3l.7-.7"/><circle cx="12" cy="12" r="4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ── Hue 系统(对应设计里 3 色 hue,扩成 6 天)─────────────
+const HUES = [
+  { name: 'persimmon',  bg: 'oklch(0.94 0.05 45)',  mid: 'oklch(0.72 0.14 45)',  ink: 'oklch(0.42 0.14 45)',  dot: 'oklch(0.68 0.16 45)' },
+  { name: 'terracotta', bg: 'oklch(0.94 0.04 20)',  mid: 'oklch(0.72 0.12 20)',  ink: 'oklch(0.42 0.12 20)',  dot: 'oklch(0.68 0.14 20)' },
+  { name: 'moss',       bg: 'oklch(0.94 0.04 130)', mid: 'oklch(0.68 0.10 130)', ink: 'oklch(0.38 0.10 130)', dot: 'oklch(0.60 0.12 130)' },
+  { name: 'indigo',     bg: 'oklch(0.94 0.04 270)', mid: 'oklch(0.68 0.12 270)', ink: 'oklch(0.42 0.12 270)', dot: 'oklch(0.62 0.14 270)' },
+  { name: 'plum',       bg: 'oklch(0.94 0.04 330)', mid: 'oklch(0.70 0.11 330)', ink: 'oklch(0.42 0.11 330)', dot: 'oklch(0.62 0.13 330)' },
+  { name: 'ocean',      bg: 'oklch(0.94 0.04 220)', mid: 'oklch(0.68 0.12 220)', ink: 'oklch(0.40 0.12 220)', dot: 'oklch(0.60 0.14 220)' },
+];
+
+// 照片占位色板(按分类关键字映射)
+const PHOTO_PALETTES = {
+  '景点':     ['#C88A5A', '#8A5A3A'],
+  '餐饮':     ['#D8A870', '#A87840'],
+  '公园':     ['#8AA070', '#5A7040'],
+  '商场':     ['#A8B4C4', '#5A7A9A'],
+  '娱乐':     ['#C06848', '#8A3828'],
+  '咖啡':     ['#8A6A4A', '#5A3A2A'],
+  '寺院':     ['#C88A5A', '#8A5A3A'],
+  '自然':     ['#8AA070', '#5A7040'],
+  '景观':     ['#A8C4D4', '#5A7A9A'],
+  '交通':     ['#4A6B8A', '#2A4A6A'],
+  '餐食':     ['#D8A870', '#A87840'],
+  '神社':     ['#C06848', '#8A3828'],
+  '街道':     ['#D8B890', '#A87860'],
+  '茶室':     ['#7A9A5A', '#4A6A3A'],
+  '步道':     ['#E0B8C8', '#A07890'],
+  '其它':     ['#C8A888', '#8A6848'],
+};
+const DEFAULT_PALETTE = ['#C8A888', '#8A6848'];
+
+// 经 POI type 猜 category
+function inferCat(poi) {
+  const t = (poi.type || '') + ' ' + (poi.query || '') + ' ' + (poi.name || '');
+  if (/公园|广场/.test(t)) return '公园';
+  if (/商场|cocopark|万象|COCO|购物/i.test(t)) return '商场';
+  if (/餐饮|饭|餐厅|食堂|涮肉|寿司|料理|茶餐厅|泰|火锅/.test(t)) return '餐饮';
+  if (/酒|酒吧|居酒屋/.test(t)) return '餐饮';
+  if (/茶|咖啡|拿铁/.test(t)) return '咖啡';
+  if (/地铁|站|出口/.test(t)) return '交通';
+  if (/海岸|海边|湾/.test(t)) return '景观';
+  if (/窗|谷|花卉|小镇|景区|古镇/.test(t)) return '景点';
+  return '其它';
+}
+
+function palette(cat) {
+  return PHOTO_PALETTES[cat] || DEFAULT_PALETTE;
+}
+
+// 状态
+const state = {
+  data: null,
+  expandedDay: 1,
+  activeStop: { day: 1, n: 1 },
+  hoveredPin: null,
+  map: null,
+  markers: {},   // `${day}-${n}` -> AMap.Marker
+  polylines: {}, // day -> AMap.Polyline
+  dragStop: null,    // {day, n} 当前在拖的 stop
+  dragOverIdx: null, // 目标放置索引
+  search: '',        // 搜索关键字
+};
+
+// ── 搜索 / 编辑 name ─────────────────────────
+function matchSearch(s) {
+  if (!state.search) return true;
+  const q = state.search.toLowerCase();
+  return (s.name || '').toLowerCase().includes(q)
+      || (s.cat || '').toLowerCase().includes(q)
+      || (s.note || '').toLowerCase().includes(q);
+}
+
+function renameStop(day, n, newName) {
+  const d = state.data.days.find(x => x.id === day);
+  const s = d && d.stops.find(x => x.n === n);
+  if (!s || !newName || newName === s.name) return;
+  s.name = newName;
+  renderAll();
+}
+
+// ── 操作:删除 / 拖拽 / 添加 ─────────────────────────
+function deleteStop(day, n) {
+  const d = state.data.days.find(x => x.id === day);
+  if (!d) return;
+  d.stops = d.stops.filter(s => s.n !== n).map((s, i) => ({ ...s, n: i + 1 }));
+  if (state.activeStop.day === day && state.activeStop.n === n) {
+    state.activeStop = { day, n: d.stops[0] ? d.stops[0].n : 1 };
+  }
+  renderAll();
+}
+
+function moveStop(day, fromN, toIdx) {
+  const d = state.data.days.find(x => x.id === day);
+  if (!d) return;
+  const fromIdx = d.stops.findIndex(s => s.n === fromN);
+  if (fromIdx < 0 || fromIdx === toIdx) return;
+  const [moved] = d.stops.splice(fromIdx, 1);
+  d.stops.splice(toIdx > fromIdx ? toIdx - 1 : toIdx, 0, moved);
+  d.stops = d.stops.map((s, i) => ({ ...s, n: i + 1 }));
+  renderAll();
+}
+
+function addStop(day) {
+  const name = prompt('要添加的景点名字?(会用高德查坐标)');
+  if (!name) return;
+  showToast('查询坐标中...');
+  fetch('/plan/resolve-poi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: name, city: (state.data && state.data.city) || '深圳' }),
+  })
+    .then(r => r.json())
+    .then(poi => {
+      if (!poi || !poi.lat) { showToast('没找到这个地点,换个名字试试'); return; }
+      const d = state.data.days.find(x => x.id === day);
+      if (!d) return;
+      const cat = inferCat({ name: poi.name, query: name, type: poi.type });
+      const newStop = {
+        n: d.stops.length + 1,
+        name: poi.name || name,
+        cat,
+        note: poi.district || name,
+        closed: false,
+        lat: Number(poi.lat),
+        lng: Number(poi.lng),
+        palette: palette(cat),
+        query: name,
+      };
+      d.stops.push(newStop);
+      state.activeStop = { day, n: newStop.n };
+      showToast('已添加:' + newStop.name);
+      renderAll();
+    })
+    .catch(err => showToast('查询失败:' + err.message));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('visible'), 2400);
+}
+
+// ── 数据加载 ─────────────────────────────────
+async function loadPlan() {
+  const resp = await fetch('/plan/demo');
+  if (!resp.ok) return null;
+  return await resp.json();
+}
+
+// 把后端数据适配成设计里的 stops 结构
+function adaptData(raw) {
+  const days = [];
+  raw.day_clusters.forEach((c, idx) => {
+    const hue = HUES[idx % HUES.length];
+    const stops = c.pois.map((p, i) => {
+      const cat = inferCat(p);
+      return {
+        n: i + 1,
+        name: p.name || '(待定)',
+        cat: cat,
+        note: p.district || p.query || '',
+        closed: /暂停营业|停业/.test(p.name || ''),
+        lat: Number(p.lat) || null,
+        lng: Number(p.lng) || null,
+        palette: palette(cat),
+        query: p.query,
+        image: p.image || null,
+      };
+    });
+    days.push({
+      id: c.day,
+      date: c.date,
+      theme: buildTheme(c, stops),
+      stops,
+      hue,
+      is_risk_day: c.is_risk_day,
+      is_free_day: c.is_free_day || stops.length === 0,
+      hotness: c.hotness || 0,
+      weather: c.weather || null,
+    });
+  });
+  return {
+    title: (raw.city || '') + ' · ' + (raw.days || days.length) + ' 日行程',
+    subtitle: raw.itinerary_summary || '',
+    city: raw.city || '深圳',
+    days,
+  };
+}
+
+// 基于 stops 生成一句 theme
+function buildTheme(cluster, stops) {
+  if (cluster.is_free_day || stops.length === 0) return '自由机动日';
+  // 用头两个点的关键字合成
+  const names = stops.slice(0, 2).map(s => s.name.replace(/[()\(\)·].*/, '').slice(0, 4));
+  return names.join('・') + (stops.length > 2 ? ' 等' : '');
+}
+
+// ── 渲染 ─────────────────────────────────────
+function hexToRgba(hex, a) {
+  const m = hex.match(/^#([0-9a-f]{6})/i);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+function renderTop() {
+  document.getElementById('trip-title').textContent = state.data.title;
+  document.getElementById('trip-sub').textContent = state.data.subtitle || '';
+}
+
+function renderStack() {
+  const stack = document.getElementById('stack');
+  stack.innerHTML = '';
+  const rotations = [-1.2, 0.8, -0.6, 1.1, -0.8, 0.5];
+
+  state.data.days.forEach((d, idx) => {
+    const isExpanded = d.id === state.expandedDay;
+    const card = document.createElement('div');
+    card.className = 'day-card' + (isExpanded ? ' expanded' : '');
+    card.dataset.rot = rotations[idx % rotations.length];
+    card.style.borderLeftColor = d.hue.mid;
+    if (isExpanded) {
+      card.style.borderColor = d.hue.mid;
+      card.style.borderLeftColor = d.hue.mid;
+    }
+    card.onclick = () => {
+      if (isExpanded) return;
+      state.expandedDay = d.id;
+      state.activeStop = { day: d.id, n: 1 };
+      renderAll();
+    };
+
+    card.appendChild(mkHead(d, isExpanded));
+    if (isExpanded) card.appendChild(mkStops(d));
+    stack.appendChild(card);
+  });
+}
+
+function mkHead(d, isExpanded) {
+  const head = document.createElement('div');
+  head.className = 'day-head';
+  head.innerHTML = `
+    <div class="day-num" style="
+        background: ${d.hue.bg};
+        color: ${d.hue.ink};
+        border: 1px solid ${d.hue.mid}40;
+      ">${d.id}</div>
+    <div style="flex:1; min-width:0">
+      <div class="day-theme" style="color:${d.hue.ink}">${d.theme}</div>
+      <div class="day-meta">${d.date} · ${d.stops.length} stops</div>
+      <div class="day-flags">
+        ${d.is_risk_day ? '<span class="flag risk">高峰日</span>' : ''}
+        ${d.is_free_day ? '<span class="flag free">机动日</span>' : ''}
+      </div>
+    </div>
+  `;
+  if (isExpanded && d.weather) {
+    const badge = document.createElement('div');
+    badge.className = 'weather-badge';
+    badge.style.color = d.hue.ink;
+    badge.innerHTML = `
+      ${weatherIconSvg(d.weather.icon, 13, d.hue.ink)}
+      <span style="font-weight:500">${d.weather.tempHi}° / ${d.weather.tempLo}°</span>
+      <span style="opacity:.5">·</span>
+      <span>雨 ${d.weather.rain}%</span>
+    `;
+    head.appendChild(badge);
+  } else if (!isExpanded) {
+    const mini = document.createElement('div');
+    mini.className = 'mini-photos';
+    d.stops.slice(0, 5).forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'mini-photo';
+      if (s.image) {
+        el.style.backgroundImage = `url('/img-proxy?url=${encodeURIComponent(s.image)}')`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+      } else {
+        el.style.background = `linear-gradient(135deg, ${s.palette[0]} 0%, ${s.palette[1]} 100%)`;
+      }
+      mini.appendChild(el);
+    });
+    if (d.stops.length > 5) {
+      const more = document.createElement('div');
+      more.className = 'mini-photo more';
+      more.textContent = '+' + (d.stops.length - 5);
+      mini.appendChild(more);
+    }
+    if (d.stops.length > 0) head.appendChild(mini);
+  }
+  return head;
+}
+
+// ── 天气图标 SVG ─────────────────────────────
+function weatherIconSvg(icon, size, color) {
+  const s = size || 14, c = color || 'currentColor';
+  if (icon === 'sun') return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+  if (icon === 'cloud') return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A7 7 0 1 0 8.5 19h9z"/></svg>`;
+  if (icon === 'rain') return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 14a4.5 4.5 0 1 0-1.4-8.8A7 7 0 1 0 8.5 14h9z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg>`;
+  return '';
+}
+
+function mkStops(d) {
+  const wrap = document.createElement('div');
+  wrap.className = 'stops';
+
+  if (d.stops.length === 0) {
+    wrap.innerHTML = `<div style="padding:20px 10px; color:${d.hue.ink}; font-family:'Instrument Serif',serif; font-style:italic; font-size:15px; text-align:center;">
+      留白日,可从其他天匀过来或自由安排
+    </div>`;
+  }
+
+  d.stops.forEach((s, i) => {
+    const visible = matchSearch(s);
+    // drop indicator(拖拽时显示)
+    if (state.dragStop && state.dragStop.day === d.id && state.dragOverIdx === i && state.dragStop.n !== s.n) {
+      const ind = document.createElement('div');
+      ind.className = 'drop-indicator';
+      ind.style.background = d.hue.mid;
+      wrap.appendChild(ind);
+    }
+
+    const row = document.createElement('div');
+    const isActive = state.activeStop.day === d.id && state.activeStop.n === s.n;
+    const isDragging = state.dragStop && state.dragStop.day === d.id && state.dragStop.n === s.n;
+    row.className = 'stop' + (isActive ? ' active' : '') + (isDragging ? ' dragging' : '');
+    row.style.color = d.hue.ink;
+    if (!visible) { row.style.display = 'none'; }
+    if (isActive) row.style.background = d.hue.bg;
+    row.draggable = true;
+
+    const photoStyle = s.image
+      ? `background-image: url('/img-proxy?url=${encodeURIComponent(s.image)}')`
+      : `background: linear-gradient(135deg, ${s.palette[0]} 0%, ${s.palette[1]} 100%)`;
+    const photoClass = s.image ? 'photo has-img' : 'photo';
+    row.innerHTML = `
+      <div class="drag-handle" title="拖拽排序">
+        <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor"><circle cx="2" cy="3" r="1"/><circle cx="6" cy="3" r="1"/><circle cx="2" cy="7" r="1"/><circle cx="6" cy="7" r="1"/><circle cx="2" cy="11" r="1"/><circle cx="6" cy="11" r="1"/></svg>
+      </div>
+      <div class="${photoClass}" style="${photoStyle}"></div>
+      <div class="body">
+        <div class="line1">
+          <div class="num" style="color:${d.hue.ink}; border-color:${d.hue.mid};">${s.n}</div>
+          <div class="name ${s.closed ? 'closed' : ''}">${s.name}</div>
+          <span class="cat-chip" style="color:${d.hue.ink}; background:${d.hue.bg};">${s.cat}</span>
+        </div>
+        <div class="note">${s.note || ''}</div>
+        <div class="dist-line">${s.lat && s.lng ? `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}` : '—'}</div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn edit" data-act="edit" title="编辑名字">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button class="icon-btn delete" data-act="delete" title="删除">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+        </button>
+      </div>
+    `;
+
+    row.onmouseenter = () => { state.hoveredPin = { day: d.id, n: s.n }; highlightPin(d.id, s.n); };
+    row.onmouseleave = () => { state.hoveredPin = null; highlightPin(null, null); };
+    row.onclick = (e) => {
+      if (e.target.closest('.icon-btn') || e.target.closest('.actions')) return;
+      e.stopPropagation();
+      state.activeStop = { day: d.id, n: s.n };
+      focusPoi(d.id, s.n, s);
+      renderStack();
+    };
+
+    // 拖拽
+    row.ondragstart = (e) => {
+      state.dragStop = { day: d.id, n: s.n };
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    row.ondragend = () => {
+      state.dragStop = null; state.dragOverIdx = null;
+      renderStack();
+    };
+    row.ondragover = (e) => {
+      e.preventDefault();
+      if (!state.dragStop || state.dragStop.day !== d.id) return;
+      if (state.dragOverIdx !== i) {
+        state.dragOverIdx = i;
+        renderStack();
+      }
+    };
+    row.ondrop = (e) => {
+      e.preventDefault();
+      if (!state.dragStop || state.dragStop.day !== d.id) return;
+      moveStop(d.id, state.dragStop.n, i);
+    };
+
+    // 删除按钮
+    row.querySelector('[data-act="delete"]').onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`确认删除 "${s.name}"?`)) deleteStop(d.id, s.n);
+    };
+    // 编辑按钮
+    row.querySelector('[data-act="edit"]').onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt('改成什么名字?', s.name);
+      if (newName && newName.trim()) renameStop(d.id, s.n, newName.trim());
+    };
+    // 双击 name 也触发编辑
+    row.querySelector('.name').ondblclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt('改成什么名字?', s.name);
+      if (newName && newName.trim()) renameStop(d.id, s.n, newName.trim());
+    };
+
+    wrap.appendChild(row);
+  });
+
+  // 末尾添加按钮
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-stop-btn';
+  addBtn.style.borderColor = d.hue.mid;
+  addBtn.style.color = d.hue.ink;
+  addBtn.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    加一个景点
+  `;
+  addBtn.onclick = (e) => { e.stopPropagation(); addStop(d.id); };
+  wrap.appendChild(addBtn);
+
+  return wrap;
+}
+
+function renderSummary() {
+  const d = state.data.days.find(x => x.id === state.expandedDay);
+  if (!d) return;
+  const h = d.hue;
+  const pois = d.stops.filter(s => s.lat && s.lng);
+  const sp = document.getElementById('summary');
+  sp.innerHTML = `
+    <div class="summary-label" style="color:${h.ink}">Day ${d.id} · 概览</div>
+    <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:18px;color:${h.ink};line-height:1.2;margin-bottom:4px">${d.theme}</div>
+    <div style="font-size:11px;color:var(--muted);font-family:'Geist Mono',monospace">${d.date}</div>
+    <div class="summary-grid">
+      <div class="summary-cell" style="background:${h.bg}; border:1px solid ${h.mid}30">
+        <div class="lbl">站点</div><div class="val" style="color:${h.ink}">${d.stops.length}</div>
+      </div>
+      <div class="summary-cell" style="background:${h.bg}; border:1px solid ${h.mid}30">
+        <div class="lbl">有坐标</div><div class="val" style="color:${h.ink}">${pois.length}</div>
+      </div>
+      <div class="summary-cell" style="background:${h.bg}; border:1px solid ${h.mid}30">
+        <div class="lbl">热度</div><div class="val" style="color:${h.ink}">${d.hotness}</div>
+      </div>
+      <div class="summary-cell" style="background:${h.bg}; border:1px solid ${h.mid}30">
+        <div class="lbl">类型</div><div class="val" style="color:${h.ink}">${d.is_risk_day ? '高峰' : d.is_free_day ? '机动' : '平日'}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLegend() {
+  const lp = document.getElementById('legend');
+  lp.innerHTML = '<div class="legend-title">Days</div>' +
+    state.data.days.map(d => {
+      const active = d.id === state.expandedDay;
+      return `
+        <div class="legend-row ${active ? '' : 'dim'}" data-day="${d.id}">
+          <div class="bar" style="background:${d.hue.mid}"></div>
+          <div class="num">D${d.id}</div>
+          <div class="theme">${d.theme}</div>
+        </div>
+      `;
+    }).join('');
+  lp.querySelectorAll('.legend-row').forEach(r => {
+    r.onclick = () => {
+      state.expandedDay = Number(r.dataset.day);
+      state.activeStop = { day: state.expandedDay, n: 1 };
+      renderAll();
+    };
+  });
+}
+
+// ── 地图 ──────────────────────────────────────
+function initMap() {
+  state.map = new AMap.Map('map', {
+    zoom: 11,
+    center: [113.97, 22.54],
+    viewMode: '2D',
+    features: ['bg', 'road', 'building'],
+  });
+}
+
+function redrawMap() {
+  Object.values(state.markers).forEach(m => state.map.remove(m));
+  Object.values(state.polylines).forEach(p => state.map.remove(p));
+  state.markers = {};
+  state.polylines = {};
+
+  state.data.days.forEach(d => {
+    const isActive = d.id === state.expandedDay;
+    const color = parseColorForMarker(d.hue);
+    const pts = d.stops.filter(s => s.lat && s.lng);
+    if (pts.length >= 2) {
+      const pl = new AMap.Polyline({
+        path: pts.map(s => [s.lng, s.lat]),
+        strokeColor: color,
+        strokeOpacity: isActive ? 0.95 : 0.25,
+        strokeWeight: isActive ? 4 : 2.5,
+        lineJoin: 'round',
+      });
+      state.map.add(pl);
+      state.polylines[d.id] = pl;
+    }
+    pts.forEach(s => {
+      const isActiveStop = isActive && state.activeStop.day === d.id && state.activeStop.n === s.n;
+      const key = `${d.id}-${s.n}`;
+      const mk = new AMap.Marker({
+        position: [s.lng, s.lat],
+        offset: new AMap.Pixel(-14, -14),
+        content: `<div class="map-pin${isActiveStop ? ' active' : ''}${!isActive ? ' dim' : ''}" style="background:${color}">${s.n}</div>`,
+        extData: { day: d.id, n: s.n },
+      });
+      mk.on('click', () => {
+        state.expandedDay = d.id;
+        state.activeStop = { day: d.id, n: s.n };
+        focusPoi(d.id, s.n, s);
+        renderAll();
+      });
+      mk.on('mouseover', () => highlightPin(d.id, s.n));
+      mk.on('mouseout', () => highlightPin(null, null));
+      state.map.add(mk);
+      state.markers[key] = mk;
+    });
+  });
+
+  // 视野:只聚焦当前展开日
+  const activeDay = state.data.days.find(x => x.id === state.expandedDay);
+  if (activeDay) {
+    const ms = activeDay.stops
+      .filter(s => s.lat && s.lng)
+      .map(s => state.markers[`${activeDay.id}-${s.n}`])
+      .filter(Boolean);
+    if (ms.length > 0) state.map.setFitView(ms, false, [60, 60, 60, 60]);
+  }
+}
+
+// 从 oklch 色生成 marker 颜色(近似)
+function parseColorForMarker(hue) {
+  // 简单映射:用 hue.name 取预设 hex
+  const map = {
+    persimmon: '#D87040',
+    terracotta: '#B8593A',
+    moss: '#6B8A4A',
+    indigo: '#6868C8',
+    plum: '#B8689A',
+    ocean: '#3A8AB8',
+  };
+  return map[hue.name] || '#D87040';
+}
+
+function highlightPin(day, n) {
+  Object.entries(state.markers).forEach(([key, mk]) => {
+    const [d, num] = key.split('-').map(Number);
+    const el = mk.getContent();
+    if (!el) return;
+    const isTarget = (day === d && n === num);
+    const isActiveDay = d === state.expandedDay;
+    const isSelected = state.activeStop.day === d && state.activeStop.n === num;
+    // 重构 class
+    const color = parseColorForMarker(state.data.days.find(x => x.id === d).hue);
+    mk.setContent(
+      `<div class="map-pin${isTarget || isSelected ? ' active' : ''}${!isActiveDay ? ' dim' : ''}" style="background:${color}">${num}</div>`
+    );
+  });
+}
+
+function focusPoi(day, n, s) {
+  if (!state.map || !s.lat || !s.lng) return;
+  state.map.setZoomAndCenter(15, [s.lng, s.lat]);
+}
+
+// ── 主入口 ────────────────────────────────────
+function renderAll() {
+  renderTop();
+  renderStack();
+  renderSummary();
+  renderLegend();
+  redrawMap();
+}
+
+// ── 顶栏 / 地图控件 handler ─────────────────────────
+document.getElementById('search').oninput = (e) => {
+  state.search = e.target.value.trim();
+  renderStack();
+};
+document.getElementById('share-btn').onclick = () => {
+  navigator.clipboard.writeText(location.href)
+    .then(() => showToast('已复制链接到剪贴板'))
+    .catch(() => showToast('复制失败'));
+};
+document.getElementById('mc-zoom-in').onclick = () => state.map && state.map.zoomIn();
+document.getElementById('mc-zoom-out').onclick = () => state.map && state.map.zoomOut();
+document.getElementById('mc-reset').onclick = () => {
+  if (!state.map) return;
+  const d = state.data.days.find(x => x.id === state.expandedDay);
+  if (!d) return;
+  const ms = d.stops
+    .filter(s => s.lat && s.lng)
+    .map(s => state.markers[`${d.id}-${s.n}`])
+    .filter(Boolean);
+  if (ms.length) state.map.setFitView(ms, false, [60, 60, 60, 60]);
+};
+
+(async function () {
+  const raw = await loadPlan();
+  if (!raw) {
+    document.getElementById('trip-title').textContent = '加载失败';
+    return;
+  }
+  state.data = adaptData(raw);
+  // 默认展开第一个有坐标的天
+  const firstWithStops = state.data.days.find(d => d.stops.some(s => s.lat));
+  if (firstWithStops) {
+    state.expandedDay = firstWithStops.id;
+    const firstStop = firstWithStops.stops.find(s => s.lat);
+    state.activeStop = { day: firstWithStops.id, n: firstStop ? firstStop.n : 1 };
+  }
+  initMap();
+  renderAll();
+})();
+</script>
+
+</body>
+</html>

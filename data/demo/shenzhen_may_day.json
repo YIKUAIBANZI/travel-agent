@@ -1,0 +1,207 @@
+{
+  "city": "深圳",
+  "days": 6,
+  "day_clusters": [
+    {
+      "day": 1,
+      "date": "2026-04-29",
+      "is_risk_day": false,
+      "is_free_day": false,
+      "hotness": 2,
+      "pois": [
+        {
+          "name": "世界之窗",
+          "lat": "22.536808",
+          "lng": "113.975228",
+          "district": "南山区",
+          "query": "世界之窗"
+        },
+        {
+          "name": "欢乐海岸",
+          "lat": "22.523474",
+          "lng": "113.991235",
+          "district": "南山区",
+          "query": "欢乐海岸"
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "date": "2026-04-30",
+      "is_risk_day": false,
+      "is_free_day": false,
+      "hotness": 1,
+      "pois": [
+        {
+          "name": "深圳湾公园",
+          "lat": "22.517547",
+          "lng": "113.941532",
+          "district": "南山区",
+          "query": "深圳湾公园"
+        },
+        {
+          "name": "深圳人才公园",
+          "lat": "22.511353",
+          "lng": "113.946958",
+          "district": "南山区",
+          "query": "深圳人才公园"
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "date": "2026-05-01",
+      "is_risk_day": true,
+      "is_free_day": false,
+      "hotness": 0,
+      "pois": [
+        {
+          "name": "COCOPark",
+          "lat": "22.534749",
+          "lng": "114.055502",
+          "district": "福田区",
+          "query": "购物公园cocopark"
+        },
+        {
+          "name": "开吉茶馆",
+          "lat": "22.533463",
+          "lng": "114.053923",
+          "district": "福田区",
+          "query": "开吉茶馆"
+        },
+        {
+          "name": "Ameigo梅果·云贵川bistro(星河COCOPark店)",
+          "lat": "22.533725",
+          "lng": "114.053975",
+          "district": "福田区",
+          "query": "梅果.云贵川"
+        },
+        {
+          "name": "太食獸泰式茶餐厅(星河COCOPARK店)(暂停营业)",
+          "lat": "22.533746",
+          "lng": "114.053484",
+          "district": "福田区",
+          "query": "太食獸"
+        },
+        {
+          "name": "七月柿·番茄食堂(Cocopark二期店)",
+          "lat": "22.531645",
+          "lng": "114.055012",
+          "district": "福田区",
+          "query": "番茄食堂"
+        },
+        {
+          "name": "鸟剑居酒屋(购物公园店)",
+          "lat": "22.536483",
+          "lng": "114.053737",
+          "district": "福田区",
+          "query": "鸟剑居酒屋(购物公园店)"
+        },
+        {
+          "name": "岗厦地铁站B口",
+          "lat": "22.535436",
+          "lng": "114.067212",
+          "district": "福田区",
+          "query": "岗厦B口"
+        },
+        {
+          "name": "亮子铜锅涮肉(凯丰店)",
+          "lat": "22.566289",
+          "lng": "114.064822",
+          "district": "福田区",
+          "query": "老南门铜锅涮肉"
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "date": "2026-05-02",
+      "is_risk_day": true,
+      "is_free_day": false,
+      "hotness": 0,
+      "pois": [
+        {
+          "name": "车公庙",
+          "lat": "22.533742",
+          "lng": "114.028426",
+          "district": "福田区",
+          "query": "车公庙"
+        },
+        {
+          "name": "丰盛町",
+          "lat": "22.535911",
+          "lng": "114.026278",
+          "district": "福田区",
+          "query": "c出口丰盛町婶婶泡菜粉"
+        },
+        {
+          "name": "东海缤纷天地停车场(入口)",
+          "lat": "22.536933",
+          "lng": "114.020787",
+          "district": "福田区",
+          "query": "b出口东海缤纷天地"
+        },
+        {
+          "name": "黔派·贵州干锅牛肉(车公庙店)",
+          "lat": "22.533230",
+          "lng": "114.025384",
+          "district": "福田区",
+          "query": "干锅牛肉黔派"
+        },
+        {
+          "name": "寿司本色·中华寿司传承者(深圳首店)",
+          "lat": "22.532305",
+          "lng": "114.025982",
+          "district": "福田区",
+          "query": "寿司本色"
+        },
+        {
+          "name": "香蜜公园",
+          "lat": "22.546640",
+          "lng": "114.022082",
+          "district": "福田区",
+          "query": "香蜜公园"
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "date": "2026-05-03",
+      "is_risk_day": true,
+      "is_free_day": true,
+      "hotness": 0,
+      "pois": []
+    },
+    {
+      "day": 6,
+      "date": "2026-05-04",
+      "is_risk_day": false,
+      "is_free_day": false,
+      "hotness": 1,
+      "pois": [
+        {
+          "name": "荷兰花卉小镇369花园",
+          "lat": "22.544762",
+          "lng": "113.911868",
+          "district": "南山区",
+          "query": "南山荷兰花卉小镇"
+        },
+        {
+          "name": "沅芷小筑",
+          "lat": "22.543752",
+          "lng": "113.910830",
+          "district": "南山区",
+          "query": "沅芷小筑"
+        },
+        {
+          "name": "馥树Fushoo",
+          "lat": "22.564775",
+          "lng": "113.908625",
+          "district": "宝安区",
+          "query": "馥树"
+        }
+      ]
+    }
+  ],
+  "itinerary_summary": "南山浪漫启程，福田都市漫游，自由日弹性收尾"
+}
