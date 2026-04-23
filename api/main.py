@@ -382,6 +382,7 @@ async def check_pois(body: dict):
     from tools.check_poi_status import check_poi
 
     pois = body.get("pois") or []
+    city = body.get("city") or "深圳"
     if not pois or not isinstance(pois, list):
         from fastapi import HTTPException
 
@@ -396,7 +397,7 @@ async def check_pois(body: dict):
     async def _one(p):
         async with sem:
             date = p.get("date") or ""
-            return await asyncio.to_thread(check_poi, p, date)
+            return await asyncio.to_thread(check_poi, p, date, city)
 
     results = await asyncio.gather(*[_one(p) for p in pois])
     return {"results": results, "total": len(results)}

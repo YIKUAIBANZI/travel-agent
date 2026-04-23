@@ -491,6 +491,7 @@ async function checkCurrentDay() {
   state.checking = true;
   showToast('检查中...(每个点 ~5-10 秒)');
   const payload = {
+    city: state.data.city || '深圳',
     pois: d.stops.map(s => ({
       name: s.name, district: s.note, type: s.cat, date: d.date,
     })),

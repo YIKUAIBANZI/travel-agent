@@ -53,22 +53,15 @@ def _rule_layer(poi: dict) -> dict | None:
     return None
 
 
-def _exa_search(poi_name: str, date: str, num: int = 4) -> list[dict]:
-    """搜最新 3-5 条含'预约/限流/关闭/门票'的片段。"""
-    key = os.getenv("EXA_API_KEY", "")
-    if not key:
-        return []
-
-    # 从 date 提取月份 + 年,让搜索带时效感
-    ym_match = re.match(r"(\d{4})-(\d{2})", date or "")
-    period = f"{ym_match.group(1)}年{int(ym_match.group(2))}月" if ym_match else ""
-    query = f"{poi_name} {period} 预约 限流 开放时间 闭园"
-
+def _exa_query(
+    query: str, num: int, key: str, since: str = "2025-01-01T00:00:00.000Z"
+) -> list[dict]:
+    """单次 Exa 查询,失败或 0 结果返 []。"""
     payload = {
         "query": query,
         "numResults": min(num, 5),
         "contents": {"text": {"maxCharacters": 500}},
-        "startPublishedDate": "2025-01-01T00:00:00.000Z",
+        "startPublishedDate": since,
     }
     try:
         resp = requests.post(
@@ -79,20 +72,40 @@ def _exa_search(poi_name: str, date: str, num: int = 4) -> list[dict]:
         )
         resp.raise_for_status()
     except requests.RequestException as e:
-        logger.warning(f"[check_poi_status] Exa fail for '{poi_name}': {e}")
+        logger.warning(f"[check_poi_status] Exa fail '{query[:40]}': {e}")
         return []
     data = resp.json()
-    snippets = []
-    for r in (data.get("results") or [])[:num]:
-        snippets.append(
-            {
-                "url": r.get("url", ""),
-                "title": r.get("title", ""),
-                "text": (r.get("text") or "")[:500],
-                "published": r.get("publishedDate", ""),
-            }
-        )
-    return snippets
+    return [
+        {
+            "url": r.get("url", ""),
+            "title": r.get("title", ""),
+            "text": (r.get("text") or "")[:500],
+            "published": r.get("publishedDate", ""),
+        }
+        for r in (data.get("results") or [])[:num]
+    ]
+
+
+def _exa_search(
+    poi_name: str, date: str, city: str = "深圳", num: int = 4
+) -> list[dict]:
+    """2 级降级:先严格查预约/限流关键词,0 结果就宽泛查店名+地名,保证 LLM 有材料。"""
+    key = os.getenv("EXA_API_KEY", "")
+    if not key:
+        return []
+
+    # 1. 严格查:带时效和关键词
+    ym_match = re.match(r"(\d{4})-(\d{2})", date or "")
+    period = f"{ym_match.group(1)}年{int(ym_match.group(2))}月" if ym_match else ""
+    strict_q = f"{poi_name} {period} 预约 限流 开放时间 闭园"
+    results = _exa_query(strict_q, num, key)
+    if results:
+        return results
+
+    # 2. 降级:只搜店名 + 城市(拿任何最新网页)
+    loose_q = f"{poi_name} {city}"
+    logger.info(f"[check_poi_status] fallback to loose search: {loose_q}")
+    return _exa_query(loose_q, num, key)
 
 
 _JUDGE_SYSTEM = """你是景点/餐厅的营业状态判断员。读 POI 元数据 + 网页摘要片段,
@@ -117,6 +130,8 @@ _JUDGE_SYSTEM = """你是景点/餐厅的营业状态判断员。读 POI 元数�
 # 规则
 - 证据强度低(snippet 模糊/过旧/无直接提及)时设 unknown,confidence ≤ 0.5
 - 只引用 snippet 里真实出现的 URL,不要编
+- **status=unknown 时,advice 必须给用户可执行的兜底动作**:
+  建议在大众点评/抖音/小红书搜"<poi名>近期",或出发前电话/小程序确认
 - 中文回答
 """
 
@@ -164,27 +179,32 @@ def _llm_judge(poi: dict, date: str, snippets: list[dict]) -> dict:
     st = str(out.get("status", "unknown")).lower()
     if st not in _STATUSES:
         st = "unknown"
+    advice = out.get("advice", "") or ""
+    # 兜底:unknown 必须有可执行建议
+    if st == "unknown" and not advice:
+        advice = f"建议在大众点评搜「{poi.get('name', '')}」近期评论,或出发前电话/小程序确认营业状态"
     return {
         "status": st,
         "confidence": float(out.get("confidence", 0.0) or 0.0),
         "reason": out.get("reason", "") or "",
         "sources": list(out.get("sources") or []),
-        "advice": out.get("advice", "") or "",
+        "advice": advice,
     }
 
 
-def check_poi(poi: dict, date: str) -> dict:
+def check_poi(poi: dict, date: str, city: str = "深圳") -> dict:
     """单 POI 状态检查(同步调用)。
     poi:需要含 name / district / type 字段
     date:YYYY-MM-DD
+    city:用于 Exa 降级查询时加地名
     """
     # 1. 规则层
     fast = _rule_layer(poi)
     if fast:
         return {"query": poi.get("name"), "date": date, **fast}
 
-    # 2. Exa 搜索
-    snippets = _exa_search(poi.get("name", ""), date)
+    # 2. Exa 搜索(2 级降级)
+    snippets = _exa_search(poi.get("name", ""), date, city=city)
 
     # 3. LLM 综合
     judged = _llm_judge(poi, date, snippets)
