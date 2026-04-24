@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Atelier · Travel Agent</title>
+<meta name="viewport" content="width=1440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://webapi.amap.com/maps?v=2.0&key=__AMAP_WEB_JS_KEY__&plugin=AMap.Polyline,AMap.Marker"></script>
+<style>
+  :root {
+    --accent: #D87040;
+    --ink: #2A2520;
+    --muted: #8A7A60;
+    --page: #F5EFE4;
+    --card: #FFFDF7;
+    --line: #E8DDC9;
+    --line2: #EDE3CE;
+    --side: #FFFDF7;
+    --panel: #EFE6D2;
+  }
+  html, body { margin:0; padding:0; background:#E6DFCF; font-family:'Geist', sans-serif; height:100%; color:var(--ink); }
+  * { box-sizing: border-box; }
+  button, input, textarea { font-family: inherit; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(138,122,96,0.25); border-radius:4px; }
+
+  .app { display:flex; height:100vh; background:var(--page); overflow:hidden; }
+
+  /* ── Sidebar ───────────────────────────────────────── */
+  .sidebar {
+    width: 232px; flex-shrink:0; background:var(--side); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:18px 14px; transition:width .22s ease, padding .22s ease;
+    position:relative;
+  }
+  .sidebar.compact { width:64px; padding:18px 10px; }
+  .sidebar.compact .sb-full { display:none; }
+  .sb-toggle {
+    position:absolute; top:22px; right:-11px; width:22px; height:22px; border-radius:50%;
+    border:1px solid var(--line); background:var(--card); cursor:pointer;
+    display:grid; place-items:center; padding:0; box-shadow:0 2px 6px rgba(60,40,20,.1);
+    z-index:5; color:#6A5A45;
+  }
+  .sb-brand {
+    display:flex; align-items:center; gap:10px; padding:0 4px 14px;
+    border-bottom:1px solid var(--line); margin-bottom:14px;
+  }
+  .logo-tile {
+    width:34px; height:34px; border-radius:10px; background:var(--card);
+    display:grid; place-items:center; box-shadow:0 2px 8px rgba(60,40,20,.1), inset 0 0 0 1px var(--line);
+    position:relative; overflow:hidden; flex-shrink:0;
+  }
+  .logo-tile::after {
+    content:''; position:absolute; top:0; right:0; width:46%; height:46%;
+    background:var(--accent); border-bottom-left-radius:100%;
+  }
+  .logo-tile svg { position:relative; z-index:1; }
+  .brand-name { font-family:'Instrument Serif', serif; font-size:18px; font-style:italic; line-height:1; white-space:nowrap; }
+  .brand-sub  { font-size:9.5px; color:var(--muted); margin-top:2px; font-family:'Geist Mono', monospace; letter-spacing:.08em; white-space:nowrap; }
+  .new-trip-btn {
+    padding:9px 12px; border-radius:11px; border:none; background:var(--accent); color:#fff;
+    font-size:13px; font-weight:500; cursor:pointer;
+    display:flex; align-items:center; gap:6px; margin-bottom:14px;
+    box-shadow:0 3px 10px rgba(216,112,64,.25);
+  }
+  .nav-group { margin-bottom:14px; }
+  .nav-group-label {
+    font-size:9.5px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; padding:0 8px 6px; font-family:'Geist Mono', monospace;
+  }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:9px; cursor:pointer; margin-bottom:2px;
+    color:#6A5A45; font-size:13px;
+    border:1px solid transparent;
+  }
+  .nav-item:hover { background:rgba(245,239,228,.5); }
+  .nav-item.active { background:var(--page); color:var(--ink); font-weight:500; border-color:var(--line); }
+  .nav-item .count { font-size:10.5px; color:var(--muted); font-family:'Geist Mono', monospace; margin-left:auto; }
+  .sb-user {
+    display:flex; align-items:center; gap:10px; padding:10px;
+    border-radius:11px; background:var(--page); border:1px solid var(--line);
+    margin-top:auto;
+  }
+  .sb-avatar {
+    width:28px; height:28px; border-radius:50%;
+    background:linear-gradient(135deg, #C88A5A, #8A5A3A); flex-shrink:0;
+  }
+
+  /* ── Main column ───────────────────────────────────── */
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+  .topbar {
+    padding:14px 28px; display:flex; align-items:center; gap:14px;
+    border-bottom:1px solid var(--line);
+    background:rgba(255,253,247,.7); backdrop-filter:blur(6px); flex-shrink:0;
+  }
+  .top-crumb {
+    font-size:10.5px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; font-family:'Geist Mono', monospace;
+  }
+  .top-search {
+    position:relative;
+  }
+  .top-search input {
+    border:1px solid #E0D4BA; background:var(--card); border-radius:10px;
+    padding:7px 12px 7px 32px; font-size:12.5px; width:240px; outline:none;
+  }
+  .top-search svg {
+    position:absolute; left:11px; top:50%; transform:translateY(-50%);
+  }
+  .icon-btn {
+    width:32px; height:32px; border-radius:9px; border:1px solid #E0D4BA;
+    background:var(--card); cursor:pointer; display:grid; place-items:center;
+  }
+  .top-avatar { width:30px; height:30px; border-radius:50%;
+    background:linear-gradient(135deg, #C88A5A, #8A5A3A); flex-shrink:0; }
+
+  /* ── 三态 state container(切换显示) ───────────────── */
+  .state { flex:1; display:none; grid-template-columns:1fr 320px; min-height:0; overflow:hidden; }
+  .state.visible { display:grid; }
+  .state.wide { grid-template-columns:1fr 380px; }
+
+  .left-pane { display:flex; flex-direction:column; overflow:auto; }
+
+  /* ── IDLE ──────────────────────────────────────────── */
+  #state-idle .left-pane { padding:36px 44px; }
+  .meta-eyebrow {
+    font-size:10.5px; letter-spacing:.15em; color:var(--accent);
+    text-transform:uppercase; font-family:'Geist Mono', monospace; margin-bottom:14px;
+  }
+  .hero-h1 {
+    font-family:'Instrument Serif', serif; font-size:68px; line-height:1.02;
+    letter-spacing:-0.02em; font-weight:400; margin:0; font-style:italic;
+  }
+  .hero-h1 .accent { color:var(--accent); }
+  .hero-desc {
+    font-size:14px; color:#5A4F40; margin-top:18px; max-width:520px; line-height:1.6;
+  }
+  .sec-head {
+    margin-top:36px; margin-bottom:18px;
+    display:flex; align-items:baseline; justify-content:space-between;
+  }
+  .sec-head h2 {
+    font-family:'Instrument Serif', serif; font-size:22px; font-style:italic;
+    margin:0; font-weight:400;
+  }
+  .sec-head .more { font-size:11px; color:var(--muted); cursor:pointer; }
+
+  .recent-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:28px; }
+  .recent-card {
+    padding:12px 14px; border-radius:14px; background:var(--card);
+    border:1px solid var(--line); cursor:pointer;
+    border-left-width:3px; border-left-style:solid;
+  }
+  .recent-card .date {
+    font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+    font-family:'Geist Mono', monospace;
+  }
+  .recent-card .title {
+    font-family:'Instrument Serif', serif; font-size:17px; font-style:italic;
+    margin-top:4px; line-height:1.2;
+  }
+  .recent-card .stops {
+    font-size:11px; color:var(--muted); margin-top:6px; font-family:'Geist Mono', monospace;
+  }
+
+  .insp-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .insp-card {
+    border-radius:14px; overflow:hidden; background:var(--card);
+    border:1px solid var(--line); cursor:pointer;
+  }
+  .insp-card .cover {
+    aspect-ratio:4/3; position:relative;
+  }
+  .insp-card .tag {
+    position:absolute; top:8px; left:8px; background:rgba(255,255,255,.9);
+    padding:2px 7px; border-radius:10px; font-size:9.5px; color:var(--ink);
+    font-family:'Geist Mono', monospace; letter-spacing:.05em;
+  }
+  .insp-card .body { padding:9px 11px; }
+  .insp-card .ttl { font-family:'Instrument Serif', serif; font-size:15px; font-style:italic; line-height:1.2; }
+  .insp-card .loc { font-size:10.5px; color:var(--muted); margin-top:3px; font-family:'Geist Mono', monospace; }
+
+  .input-area { position:sticky; bottom:0; margin-top:24px; padding-top:8px; background:linear-gradient(to top, var(--page) 70%, transparent); }
+  .input-box {
+    background:var(--card); border-radius:18px; border:1.5px solid #E0D4BA;
+    padding:14px 16px; box-shadow:0 8px 24px -8px rgba(60,40,20,.12);
+    transition:all .2s;
+  }
+  .input-box.focus { border-color:rgba(216,112,64,.5); box-shadow:0 12px 30px -8px rgba(216,112,64,.18); }
+  .input-row { display:flex; align-items:flex-start; gap:10px; }
+  .input-row textarea {
+    flex:1; border:none; outline:none; resize:none;
+    font-size:14.5px; color:var(--ink); background:transparent;
+    min-height:52px; line-height:1.5;
+  }
+  .input-foot {
+    display:flex; align-items:center; gap:8px;
+    margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+  }
+  .chip-btn {
+    display:inline-flex; align-items:center; gap:4px; padding:5px 10px;
+    border-radius:8px; border:1px solid var(--line); background:transparent;
+    color:#6A5A45; font-size:11.5px; cursor:pointer;
+  }
+  .chip-btn:hover { background:rgba(245,239,228,.4); }
+  .char-count { font-size:10.5px; color:var(--muted); font-family:'Geist Mono', monospace; }
+  .send-btn {
+    width:34px; height:34px; border-radius:10px; border:none;
+    background:var(--accent); color:#fff; cursor:pointer;
+    display:grid; place-items:center; box-shadow:0 3px 10px rgba(216,112,64,.3);
+  }
+  .send-btn:disabled { opacity:.45; cursor:wait; box-shadow:none; }
+  .quick-scenes { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .quick-scene {
+    padding:6px 11px; border:1px solid #E0D4BA; background:var(--card);
+    border-radius:14px; font-size:11.5px; color:#5A4F40; cursor:pointer;
+  }
+  .quick-scene:hover { background:var(--page); }
+
+  /* ── Right panel(idle 灵感贴纸) ───────────────────── */
+  .right-pane {
+    border-left:1px solid var(--line); background:var(--panel);
+    padding:28px 22px; display:flex; flex-direction:column; gap:14px; overflow:hidden;
+  }
+  .rp-head { display:flex; align-items:baseline; justify-content:space-between; }
+  .rp-head h3 { font-family:'Instrument Serif', serif; font-size:18px; font-style:italic; margin:0; font-weight:400; }
+  .rp-head .pin { font-size:10px; letter-spacing:.1em; color:var(--muted); font-family:'Geist Mono', monospace; text-transform:uppercase; }
+
+  .sticker-board { position:relative; flex:1; min-height:0; }
+  .sticker {
+    position:absolute; padding:6px 6px 20px; background:#fff;
+    box-shadow:0 4px 12px rgba(60,40,20,.15);
+  }
+  .sticker .img { aspect-ratio:1/1.1; }
+  .sticker .cap {
+    font-size:10.5px; font-family:'Instrument Serif', serif; font-style:italic;
+    margin-top:4px; text-align:center;
+  }
+  .note-sticker {
+    position:absolute; padding:10px 12px;
+    box-shadow:0 3px 10px rgba(60,40,20,.15);
+  }
+  .note-sticker .nt {
+    font-family:'Instrument Serif', serif; font-style:italic;
+    font-size:13px; font-weight:500; margin-bottom:4px;
+  }
+  .note-sticker .nb { font-size:11px; color:#4A3F30; white-space:pre-line; line-height:1.4; }
+
+  /* ── THINKING ─────────────────────────────────────── */
+  #state-thinking .left-pane { padding:32px 44px; }
+  .user-bubble {
+    align-self:flex-end; max-width:520px; padding:12px 18px;
+    background:var(--card); border:1px solid var(--line);
+    border-radius:18px 18px 4px 18px; font-size:14px; line-height:1.55;
+    margin-bottom:28px; box-shadow:0 2px 8px rgba(60,40,20,.06);
+  }
+  .think-head {
+    display:flex; gap:14px; margin-bottom:24px; align-items:flex-start;
+  }
+  .think-avatar {
+    width:36px; height:36px; border-radius:12px; background:var(--accent);
+    display:grid; place-items:center; flex-shrink:0;
+    box-shadow:0 4px 14px rgba(216,112,64,.25);
+    animation:spin 3s linear infinite;
+  }
+  .think-title {
+    font-family:'Instrument Serif', serif; font-size:32px; font-style:italic;
+    line-height:1.15;
+  }
+  .think-title .accent { color:var(--accent); }
+  .think-title .cursor {
+    display:inline-block; width:4px; height:28px; background:var(--accent);
+    margin-left:4px; vertical-align:middle; animation:blink 0.9s infinite;
+  }
+  .think-eta { font-size:13px; color:var(--muted); margin-top:10px; font-family:'Geist Mono', monospace; letter-spacing:.03em; }
+
+  .step-list {
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:8px 4px; margin-bottom:20px;
+  }
+  .step-row {
+    display:flex; align-items:flex-start; gap:14px;
+    padding:12px 18px; border-bottom:1px dashed var(--line2);
+  }
+  .step-row:last-child { border-bottom:none; }
+  .step-dot {
+    width:22px; height:22px; border-radius:50%; flex-shrink:0; margin-top:1px;
+  }
+  .step-dot.pending { border:1.5px dashed #C4B48E; }
+  .step-dot.running { border:2px solid rgba(216,112,64,.25); border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
+  .step-dot.done {
+    background:#E8EDD8; display:grid; place-items:center;
+  }
+  .step-label { font-size:14px; }
+  .step-label.pending { color:#A89880; }
+  .step-label.running { font-weight:500; }
+  .step-status-tag {
+    font-size:10.5px; font-family:'Geist Mono', monospace;
+    letter-spacing:.1em; text-transform:uppercase; margin-left:10px;
+  }
+  .step-status-tag.running { color:var(--accent); }
+  .step-status-tag.done    { color:#7A8A5A; }
+  .step-note {
+    font-size:12px; color:var(--muted); margin-top:3px;
+    font-family:'Instrument Serif', serif; font-style:italic;
+  }
+
+  .scratch-label {
+    font-size:10.5px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; font-family:'Geist Mono', monospace;
+    margin-bottom:10px;
+  }
+  .scratch-tags { display:flex; flex-wrap:wrap; gap:8px; }
+  .scratch-tag {
+    padding:6px 12px; border-radius:14px; font-size:12.5px;
+    font-family:'Instrument Serif', serif; font-style:italic;
+  }
+  .scratch-tag.on  { background:var(--card); border:1px dashed rgba(216,112,64,.5); color:var(--ink); }
+  .scratch-tag.off { background:var(--page); border:1px dashed #C4B48E; color:var(--muted); opacity:.7; }
+
+  .stop-row {
+    display:flex; align-items:center; gap:10px; margin-top:20px;
+  }
+  .stop-btn {
+    padding:9px 18px; border-radius:11px; border:1px solid #E0D4BA;
+    background:var(--card); color:#6A5A45; font-size:13px; cursor:pointer;
+  }
+  .stop-info { font-size:11.5px; color:var(--muted); }
+
+  /* Sketch map(右栏) */
+  .sketch-wrap {
+    border-left:1px solid var(--line); background:var(--panel);
+    padding:22px 20px; display:flex; flex-direction:column; gap:12px; overflow:hidden;
+  }
+  .sketch-wrap .tag-drawing {
+    font-size:10px; letter-spacing:.1em; color:var(--accent);
+    font-family:'Geist Mono', monospace; text-transform:uppercase;
+  }
+  .sketch-map {
+    flex:1; min-height:0; background:var(--card); border-radius:12px;
+    border:1px solid var(--line); position:relative; overflow:hidden;
+  }
+  .sketch-note {
+    font-size:11.5px; color:#5A4F40; line-height:1.5;
+    padding:8px 4px; font-family:'Instrument Serif', serif; font-style:italic;
+  }
+
+  /* ── RESULT ───────────────────────────────────────── */
+  #state-result .left-pane { padding:28px 40px 20px; }
+  .res-head {
+    display:flex; align-items:flex-end; gap:20px; margin-bottom:20px;
+  }
+  .res-h1 {
+    font-family:'Instrument Serif', serif; font-size:48px; line-height:1.02;
+    letter-spacing:-0.02em; font-weight:400; margin:0; font-style:italic;
+  }
+  .res-sub {
+    font-family:'Instrument Serif', serif; font-size:16px; font-style:italic;
+    color:#5A4F40; margin-top:4px;
+  }
+  .outline-btn {
+    padding:9px 16px; border-radius:11px; border:1px solid #E0D4BA;
+    background:var(--card); color:var(--ink); font-size:13px; cursor:pointer; font-weight:500;
+  }
+  .outline-btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .summary-strip {
+    display:grid; grid-template-columns:repeat(5,1fr);
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:14px 4px; margin-bottom:24px;
+  }
+  .summary-cell { padding:4px 14px; text-align:center; }
+  .summary-cell + .summary-cell { border-left:1px solid var(--line2); }
+  .summary-cell .key {
+    font-size:10px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; font-family:'Geist Mono', monospace;
+  }
+  .summary-cell .val {
+    font-family:'Instrument Serif', serif; font-size:20px; font-style:italic;
+    margin-top:3px;
+  }
+
+  .day-tabs { display:flex; gap:8px; margin-bottom:18px; }
+  .day-tab {
+    flex:1; padding:10px 14px; text-align:left; border-radius:12px;
+    border:1px solid var(--line); background:transparent; cursor:pointer;
+    border-left-width:3px; border-left-style:solid;
+  }
+  .day-tab.active { background:var(--card); }
+  .day-tab .dt-meta {
+    font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+    font-family:'Geist Mono', monospace;
+  }
+  .day-tab .dt-theme {
+    font-family:'Instrument Serif', serif; font-size:17px; font-style:italic; margin-top:3px;
+  }
+
+  .timeline { position:relative; }
+  .timeline-dashed {
+    position:absolute; left:21px; top:20px; bottom:20px;
+    width:1px; border-left:1.5px dashed; opacity:.5;
+  }
+  .tl-row {
+    display:flex; gap:16px; padding:10px 0; align-items:flex-start; position:relative;
+  }
+  .tl-num-wrap {
+    width:44px; flex-shrink:0; display:flex; flex-direction:column;
+    align-items:center; gap:4px;
+  }
+  .tl-num {
+    width:30px; height:30px; border-radius:50%; color:#fff;
+    display:grid; place-items:center;
+    font-family:'Geist Mono', monospace; font-size:12px; font-weight:600;
+    z-index:1;
+  }
+  .tl-time {
+    font-size:10px; color:var(--muted);
+    font-family:'Geist Mono', monospace; white-space:nowrap;
+  }
+  .tl-card {
+    flex:1; background:var(--card); border:1px solid var(--line);
+    border-radius:13px; padding:12px 16px;
+  }
+  .tl-card .name-row {
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .tl-card .name {
+    font-family:'Instrument Serif', serif; font-size:20px; font-style:italic; line-height:1.1;
+  }
+  .tl-card .cat-chip {
+    padding:2px 8px; font-size:10.5px; border-radius:10px;
+    font-family:'Geist Mono', monospace; letter-spacing:.04em;
+  }
+  .tl-card .dur {
+    margin-left:auto; font-size:11px; color:var(--muted);
+    font-family:'Geist Mono', monospace;
+  }
+  .tl-card .note {
+    font-size:13px; color:#5A4F40; margin-top:5px;
+    font-family:'Instrument Serif', serif; font-style:italic;
+  }
+  .tl-add {
+    display:flex; gap:16px; padding:10px 0; align-items:center;
+  }
+  .tl-add .plus-wrap {
+    width:44px; flex-shrink:0; display:flex; justify-content:center;
+  }
+  .tl-add .plus-dot {
+    width:30px; height:30px; border-radius:50%; border:1.5px dashed;
+    display:grid; place-items:center;
+  }
+  .tl-add .add-btn {
+    flex:1; padding:11px 16px; text-align:left; background:transparent;
+    border:1.5px dashed #D4C8A8; border-radius:13px;
+    color:var(--muted); font-size:13px; cursor:pointer;
+  }
+
+  /* Result right map + note */
+  .res-right {
+    border-left:1px solid var(--line); background:var(--panel);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .rr-head {
+    padding:20px 22px 12px;
+    display:flex; align-items:baseline; justify-content:space-between;
+  }
+  .rr-head h3 {
+    font-family:'Instrument Serif', serif; font-size:18px; font-style:italic; margin:0; font-weight:400;
+  }
+  .rr-map {
+    flex:1; margin:0 22px 14px; border-radius:14px; overflow:hidden;
+    background:var(--card); border:1px solid var(--line);
+    position:relative; min-height:0;
+  }
+  .rr-map #amap-container { width:100%; height:100%; filter:saturate(.85) sepia(.08); }
+  .rr-note-wrap { padding:0 22px 20px; }
+  .rr-note-label {
+    font-size:10px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; font-family:'Geist Mono', monospace; margin-bottom:8px;
+  }
+  .rr-sticky-note {
+    padding:12px 14px; background:#F7E89B; transform:rotate(-1deg);
+    font-family:'Instrument Serif', serif; font-style:italic;
+    font-size:13.5px; line-height:1.5;
+    box-shadow:0 3px 10px rgba(60,40,20,.1);
+  }
+
+  /* ── animations ──────────────────────────────────── */
+  @keyframes blink { 0%, 50% { opacity:1 } 51%, 100% { opacity:0 } }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:none } }
+  @keyframes drawPath { from { stroke-dashoffset:600 } to { stroke-dashoffset:0 } }
+  @keyframes pulse { 0%, 100% { transform:scale(1); opacity:.8 } 50% { transform:scale(1.15); opacity:1 } }
+  @keyframes spin { to { transform:rotate(360deg) } }
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sb-toggle" id="sb-toggle" title="收起/展开">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="sb-brand">
+      <div class="logo-tile">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2A2520" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 L3 10 L10 13 L13 20 Z" fill="#FFFDF7"/><path d="M10 13 L21 3"/></svg>
+      </div>
+      <div class="sb-full" style="flex:1; min-width:0">
+        <div class="brand-name">travel agent</div>
+        <div class="brand-sub">atelier · shenzhen</div>
+      </div>
+    </div>
+    <button class="new-trip-btn sb-full" onclick="switchState('idle')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span>新行程</span>
+    </button>
+    <div class="nav-group sb-full">
+      <div class="nav-group-label">主要</div>
+      <div class="nav-item active">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D87040" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>
+        <span>我的行程</span><span class="count">3</span>
+      </div>
+      <div class="nav-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A60" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L15 9 L22 10 L17 15 L18 22 L12 18 L6 22 L7 15 L2 10 L9 9 Z"/></svg>
+        <span>灵感合集</span><span class="count">42</span>
+      </div>
+      <div class="nav-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A60" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>探索</span>
+      </div>
+    </div>
+    <div class="nav-group sb-full">
+      <div class="nav-group-label">时间线</div>
+      <div class="nav-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A60" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>最近</span>
+      </div>
+      <div class="nav-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A60" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4"/></svg>
+        <span>归档</span><span class="count">8</span>
+      </div>
+    </div>
+    <div class="sb-user sb-full">
+      <div class="sb-avatar"></div>
+      <div style="flex:1; min-width:0">
+        <div style="font-size:12px; font-weight:500">旅行者</div>
+        <div style="font-size:10px; color:var(--muted); font-family:'Geist Mono', monospace">3 trips</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ── Topbar ── -->
+    <div class="topbar">
+      <div class="top-crumb" id="top-crumb">Home · 今日</div>
+      <div style="flex:1"></div>
+      <div class="top-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A7A60" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input placeholder="搜索行程、地点、灵感…" />
+      </div>
+      <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6A5A45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg></button>
+      <div class="top-avatar"></div>
+    </div>
+
+    <!-- ── ① IDLE ── -->
+    <div class="state visible" id="state-idle">
+      <div class="left-pane">
+        <div class="meta-eyebrow">◆ Atelier · 五一在即,深圳等你</div>
+        <h1 class="hero-h1">
+          今天想去<br/>
+          哪里<span class="accent">走走</span>?
+        </h1>
+        <div class="hero-desc">
+          告诉我你的城市、天数和心情 — 我来帮你挑一条路线、排一份地图、写一本小册子。
+        </div>
+
+        <div class="sec-head">
+          <h2 style="color:var(--accent)">近期行程</h2>
+          <div class="more">全部 →</div>
+        </div>
+        <div class="recent-grid" id="recent-grid"></div>
+
+        <div class="sec-head">
+          <h2>此刻推荐</h2>
+          <div class="more">换一批 ↻</div>
+        </div>
+        <div class="insp-grid" id="insp-grid"></div>
+
+        <div style="flex:1; min-height:24px"></div>
+
+        <div class="input-area">
+          <div class="input-box" id="input-box">
+            <div class="input-row">
+              <div style="padding-top:4px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D87040" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>
+              </div>
+              <textarea id="prompt-ta" placeholder="比如:带父母去苏州走 3 天,不要太累…" rows="2"></textarea>
+            </div>
+            <div class="input-foot">
+              <button class="chip-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6A5A45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span>附件</span></button>
+              <button class="chip-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6A5A45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><span>照片</span></button>
+              <button class="chip-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6A5A45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg><span>地点</span></button>
+              <div style="flex:1"></div>
+              <div class="char-count" id="char-count">0/500</div>
+              <button class="send-btn" id="send-btn" title="发送(使用示例数据演示)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="quick-scenes" id="quick-scenes"></div>
+        </div>
+      </div>
+
+      <aside class="right-pane">
+        <div class="rp-head">
+          <h3>灵感贴纸</h3>
+          <span class="pin">Pinned</span>
+        </div>
+        <div class="sticker-board" id="sticker-board"></div>
+      </aside>
+    </div>
+
+    <!-- ── ② THINKING ── -->
+    <div class="state" id="state-thinking">
+      <div class="left-pane">
+        <div class="user-bubble" id="user-bubble">"…"</div>
+        <div class="think-head">
+          <div class="think-avatar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>
+          </div>
+          <div style="flex:1; padding-top:4px">
+            <div class="think-title">
+              好,我正在为你<span class="accent">描摹</span>一条<br/>
+              慢悠悠的<span id="think-city">深圳</span>路线<span class="cursor"></span>
+            </div>
+            <div class="think-eta" id="think-eta">预计 4 分钟 · 可随时打断</div>
+          </div>
+        </div>
+
+        <div class="step-list" id="step-list"></div>
+
+        <div class="scratch-label">◆ 草稿 · 正在考虑</div>
+        <div class="scratch-tags" id="scratch-tags"></div>
+
+        <div class="stop-row">
+          <button class="stop-btn" onclick="switchState('idle')">停止生成</button>
+          <div class="stop-info">已生成内容仍会保留在你的草稿</div>
+        </div>
+      </div>
+
+      <aside class="sketch-wrap">
+        <div class="rp-head">
+          <h3>地图草稿</h3>
+          <span class="tag-drawing">drawing…</span>
+        </div>
+        <div class="sketch-map">
+          <svg viewBox="0 0 280 380" style="width:100%; height:100%; display:block">
+            <defs>
+              <pattern id="sketchGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E8DDC9" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="280" height="380" fill="url(#sketchGrid)"/>
+            <path d="M 20 80 Q 80 120, 140 100 T 260 140" stroke="#B8CDD8" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.6"/>
+            <path d="M 40 240 Q 120 260, 180 240 T 270 280" stroke="#B8CDD8" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.5"/>
+            <path d="M 60 60 Q 110 90, 140 140 T 200 200 Q 220 240, 180 280 T 100 330" stroke="#D87040" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-dasharray="6 5" style="animation:drawPath 3s linear infinite"/>
+            <g><circle cx="60" cy="60" r="14" fill="#D87040" opacity="0.25" style="animation:pulse 1.8s infinite"/><circle cx="60" cy="60" r="8" fill="#D87040"/><text x="60" y="63" text-anchor="middle" font-size="9" fill="#fff" font-family="'Geist Mono'" font-weight="600">1</text></g>
+            <g><circle cx="140" cy="140" r="14" fill="#D87040" opacity="0.25" style="animation:pulse 1.8s .3s infinite"/><circle cx="140" cy="140" r="8" fill="#D87040"/><text x="140" y="143" text-anchor="middle" font-size="9" fill="#fff" font-family="'Geist Mono'" font-weight="600">2</text></g>
+            <g><circle cx="200" cy="200" r="14" fill="#D87040" opacity="0.25" style="animation:pulse 1.8s .6s infinite"/><circle cx="200" cy="200" r="8" fill="#D87040"/><text x="200" y="203" text-anchor="middle" font-size="9" fill="#fff" font-family="'Geist Mono'" font-weight="600">3</text></g>
+            <g><circle cx="180" cy="280" r="8" fill="none" stroke="#C4B48E" stroke-width="1.5" stroke-dasharray="2 2"/><text x="180" y="283" text-anchor="middle" font-size="9" fill="#8A7A60" font-family="'Geist Mono'">?</text></g>
+            <g><circle cx="100" cy="330" r="8" fill="none" stroke="#C4B48E" stroke-width="1.5" stroke-dasharray="2 2"/><text x="100" y="333" text-anchor="middle" font-size="9" fill="#8A7A60" font-family="'Geist Mono'">?</text></g>
+          </svg>
+        </div>
+        <div class="sketch-note" id="sketch-note">
+          — 正在按你的诉求把节奏拆开,每天一片区,不折返。
+        </div>
+      </aside>
+    </div>
+
+    <!-- ── ③ RESULT ── -->
+    <div class="state wide" id="state-result">
+      <div class="left-pane">
+        <div class="res-head">
+          <div style="flex:1">
+            <div class="meta-eyebrow" id="res-eyebrow">◆ Plan · 刚刚生成</div>
+            <h1 class="res-h1" id="res-title">—</h1>
+            <div class="res-sub" id="res-sub">—</div>
+          </div>
+          <div style="display:flex; gap:8px">
+            <button class="outline-btn" onclick="switchState('idle')">再调整一下</button>
+            <button class="outline-btn primary">保存行程</button>
+          </div>
+        </div>
+
+        <div class="summary-strip" id="summary-strip"></div>
+
+        <div class="day-tabs" id="day-tabs"></div>
+
+        <div class="timeline" id="timeline"></div>
+
+        <div style="height:16px"></div>
+      </div>
+
+      <aside class="res-right">
+        <div class="rr-head">
+          <h3>地图 · <span id="rr-day-label">Day 1</span></h3>
+          <span style="font-size:10px; color:var(--muted); font-family:'Geist Mono', monospace; text-transform:uppercase" id="rr-city">Shenzhen</span>
+        </div>
+        <div class="rr-map"><div id="amap-container"></div></div>
+        <div class="rr-note-wrap">
+          <div class="rr-note-label">◆ 贴心提醒</div>
+          <div class="rr-sticky-note" id="rr-sticky">
+            行程已排好,记得五一景点提前预约,高峰日优先去避开的点。
+          </div>
+        </div>
+      </aside>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────
+// 静态 demo 数据(idle 页的近期/灵感/快捷场景)
+// ─────────────────────────────────────────────────────
+const HUES = [
+  { name:'persimmon',  mid:'#D87040', ink:'#B8593A', bg:'#F9E3D3' },
+  { name:'terracotta', mid:'#B8593A', ink:'#8A3F28', bg:'#F5D9CA' },
+  { name:'moss',       mid:'#6B8A4A', ink:'#4A6A3A', bg:'#E4EAD2' },
+  { name:'indigo',     mid:'#6868C8', ink:'#4242A0', bg:'#E0E0F2' },
+  { name:'plum',       mid:'#B8689A', ink:'#8A3A6C', bg:'#F0DDEC' },
+  { name:'ocean',      mid:'#3A8AB8', ink:'#205A82', bg:'#D8EAF2' },
+];
+
+const RECENT_TRIPS = [
+  { title:'深圳 · 五一 6 日', date:'2026-04', hue:HUES[0], stops:21 },
+  { title:'京都 · 樱花 4 日', date:'2026-04', hue:HUES[1], stops:18 },
+  { title:'川西 · 秋叶环线',  date:'2025-10', hue:HUES[2], stops:12 },
+];
+
+const INSPIRATION_CARDS = [
+  { title:'樱花前线',   loc:'京都 / 4 月',   palette:['#E8B8C0', '#C07088'], tag:'季节限定' },
+  { title:'四国遍路',   loc:'88 寺 / 春秋', palette:['#8AA070', '#5A7040'], tag:'深度' },
+  { title:'北海道雪见', loc:'小樽 / 1-2 月', palette:['#A8C4D4', '#5A7A9A'], tag:'冬季' },
+  { title:'濑户内跳岛', loc:'直岛 / 全年',   palette:['#C88A5A', '#8A5A3A'], tag:'艺术' },
+];
+
+const QUICK_SCENES = [
+  "带父母去苏州走 3 天,不要太累",
+  "周末两天杭州古镇慢游",
+  "深圳五一情侣清单(演示)",
+  "一个人的京都寺院巡礼",
+];
+
+const STICKERS = [
+  { kind:'photo', title:'清水寺',     palette:['#C88A5A','#8A5A3A'], pos:{top:10,  left:10},  rot:-2 },
+  { kind:'note',  title:'早起出发',   text:'光线最好\n6:30–8:00',    pos:{top:160, right:15}, rot:-2.5, bg:'#F7E89B' },
+  { kind:'photo', title:'哲学之道',   palette:['#E0B8C8','#A07890'], pos:{top:320, left:18},  rot:-1.5 },
+  { kind:'tag',   text:'和菓子',      pos:{top:260, right:10}, rot:3, bg:'#E8C8D0' },
+  { kind:'photo', title:'千本鸟居',   palette:['#E06848','#A02828'], pos:{top:450, left:25},  rot:-3 },
+  { kind:'note',  title:'预算',       text:'¥8k/日\n住宿 ¥4k',       pos:{top:420, right:20}, rot:1.5, bg:'#D8E8C0' },
+];
+
+// ─────────────────────────────────────────────────────
+// 状态
+// ─────────────────────────────────────────────────────
+const state = {
+  now: 'idle',
+  thinkingTimer: null,
+  stepIdx: 0,
+  steps: [
+    { label:'理解需求',     note:'' },
+    { label:'检索目的地',   note:'' },
+    { label:'按区域聚类',   note:'控制每天步行 ≤ 10km' },
+    { label:'反思循环',     note:'propose → critique → revise' },
+    { label:'生成地图与手册', note:'' },
+  ],
+  trip: null,       // result 状态的行程数据
+  activeDay: 1,
+  amap: null,
+  amapOverlays: [],
+};
+
+function $(id) { return document.getElementById(id); }
+
+// ─────────────────────────────────────────────────────
+// 渲染 IDLE
+// ─────────────────────────────────────────────────────
+function renderIdle() {
+  const rg = $('recent-grid');
+  rg.innerHTML = RECENT_TRIPS.map(t => `
+    <div class="recent-card" style="border-left-color:${t.hue.mid}">
+      <div class="date" style="color:${t.hue.ink}">${t.date}</div>
+      <div class="title">${t.title}</div>
+      <div class="stops">${t.stops} stops</div>
+    </div>
+  `).join('');
+
+  const ig = $('insp-grid');
+  ig.innerHTML = INSPIRATION_CARDS.map(c => `
+    <div class="insp-card">
+      <div class="cover" style="background:linear-gradient(135deg, ${c.palette[0]}, ${c.palette[1]})">
+        <div class="tag">${c.tag}</div>
+      </div>
+      <div class="body">
+        <div class="ttl">${c.title}</div>
+        <div class="loc">${c.loc}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const qs = $('quick-scenes');
+  qs.innerHTML = QUICK_SCENES.map(s => `<button class="quick-scene">"${s}"</button>`).join('');
+  qs.querySelectorAll('.quick-scene').forEach((b, i) => {
+    b.onclick = () => { $('prompt-ta').value = QUICK_SCENES[i]; updateCharCount(); };
+  });
+
+  renderStickers();
+}
+
+function renderStickers() {
+  const sb = $('sticker-board');
+  sb.innerHTML = '';
+  STICKERS.forEach((s, i) => {
+    const posCss = Object.entries(s.pos).map(([k,v]) => `${k}:${v}px`).join(';');
+    if (s.kind === 'photo') {
+      const el = document.createElement('div');
+      el.className = 'sticker';
+      el.style.cssText = `${posCss}; width:130px; transform:rotate(${s.rot}deg);`;
+      el.innerHTML = `
+        <div class="img" style="background:linear-gradient(135deg, ${s.palette[0]}, ${s.palette[1]})"></div>
+        <div class="cap">${s.title}</div>`;
+      sb.appendChild(el);
+    } else if (s.kind === 'note') {
+      const el = document.createElement('div');
+      el.className = 'note-sticker';
+      el.style.cssText = `${posCss}; width:120px; transform:rotate(${s.rot}deg); background:${s.bg}`;
+      el.innerHTML = `<div class="nt">${s.title}</div><div class="nb">${s.text}</div>`;
+      sb.appendChild(el);
+    } else if (s.kind === 'tag') {
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute; ${posCss}; padding:4px 12px; background:${s.bg}; transform:rotate(${s.rot}deg); font-family:'Instrument Serif', serif; font-style:italic; font-size:14px; color:#5A3A4A; box-shadow:0 2px 6px rgba(60,40,20,.1);`;
+      el.textContent = '#' + s.text;
+      sb.appendChild(el);
+    }
+  });
+}
+
+function updateCharCount() {
+  const v = $('prompt-ta').value;
+  $('char-count').textContent = `${v.length}/500`;
+}
+
+// ─────────────────────────────────────────────────────
+// THINKING:step 推进动画 + 标签云淡入
+// ─────────────────────────────────────────────────────
+function renderThinkingInit(query, city) {
+  $('user-bubble').textContent = `"${query}"`;
+  $('think-city').textContent = city || '深圳';
+  $('top-crumb').textContent = 'Planning · 生成中';
+
+  state.stepIdx = 0;
+  renderSteps();
+
+  // 标签云:5 个已考虑 + 5 个候选
+  const candidates = ['世界之窗','深圳湾公园','欢乐海岸','人才公园','荷兰花卉小镇','香蜜公园','大梅沙','东部华侨城','蛇口','深圳书城'];
+  const st = $('scratch-tags');
+  st.innerHTML = candidates.map((n, i) => {
+    const on = i < 5;
+    return `<div class="scratch-tag ${on?'on':'off'}" style="${on?`animation:fadeIn .4s ${i*0.15}s both`:''}">${n}</div>`;
+  }).join('');
+
+  // step 推进
+  if (state.thinkingTimer) clearInterval(state.thinkingTimer);
+  state.thinkingTimer = setInterval(() => {
+    state.stepIdx += 1;
+    if (state.stepIdx >= state.steps.length) {
+      clearInterval(state.thinkingTimer);
+      state.thinkingTimer = null;
+      state.stepIdx = state.steps.length;
+    }
+    renderSteps();
+  }, 6000);
+}
+
+function renderSteps() {
+  const sl = $('step-list');
+  sl.innerHTML = state.steps.map((s, i) => {
+    let status;
+    if (i < state.stepIdx) status = 'done';
+    else if (i === state.stepIdx) status = 'running';
+    else status = 'pending';
+    const tagHtml = status === 'running'
+      ? '<span class="step-status-tag running">running…</span>'
+      : status === 'done'
+      ? '<span class="step-status-tag done">done</span>'
+      : '';
+    const dotInner = status === 'done'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7A8A5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+      : '';
+    return `
+      <div class="step-row">
+        <div class="step-dot ${status}">${dotInner}</div>
+        <div style="flex:1">
+          <div style="display:flex; align-items:baseline">
+            <div class="step-label ${status}">${s.label}</div>
+            ${tagHtml}
+          </div>
+          ${s.note ? `<div class="step-note">${s.note}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────
+// RESULT:渲染后端 /plan/custom 返回 → timeline + 地图
+// ─────────────────────────────────────────────────────
+function buildTripFromResponse(resp) {
+  const itin = resp.itinerary || {};
+  const dc = resp.day_clusters || [];
+  const city = resp.city || '深圳';
+
+  const days = dc.map((c, idx) => {
+    const hue = HUES[idx % HUES.length];
+    // 配合 itinerary.days 里对应天的时间轴
+    const idat = (itin.days || []).find(d => d.day === c.day) || {};
+    const slots = [];
+    for (const k of ['morning','lunch','afternoon','dinner','evening']) {
+      const v = idat[k];
+      if (!v) continue;
+      if (Array.isArray(v)) v.forEach(b => slots.push({...b, slot:k}));
+      else if (typeof v === 'object' && v.name) slots.push({...v, slot:k});
+    }
+    const stops = slots.length > 0
+      ? slots.map((s, i) => ({
+          n: i+1,
+          time: s.time || '',
+          name: s.name || '(待定)',
+          cat: cat(s.name || '') ,
+          dur: s.duration || s.dur || '',
+          note: s.activity || s.highlight || s.dishes?.join('、') || '',
+        }))
+      : (c.pois || []).map((p, i) => ({
+          n: i+1, time:'', name:p.name, cat: cat(p.name || ''),
+          dur:'', note: p.district || p.query || '',
+          lat: p.lat, lng: p.lng,
+        }));
+    // 地图用:保留坐标(从 c.pois 里取同名)
+    const poiByName = {};
+    (c.pois || []).forEach(p => poiByName[p.name] = p);
+    stops.forEach(s => {
+      const p = poiByName[s.name];
+      if (p) { s.lat = p.lat; s.lng = p.lng; }
+    });
+    return {
+      id: c.day,
+      label: `Day ${c.day}`,
+      date: c.date.slice(5),
+      theme: idat.theme || buildTheme(stops, c),
+      hue,
+      stops,
+      is_risk_day: c.is_risk_day,
+      is_free_day: c.is_free_day,
+      tips: idat.tips || '',
+    };
+  });
+
+  return {
+    title: `${city} · ${days.length} 日行程`,
+    subtitle: itin.summary || '',
+    dates: (dc[0]?.date || '') + ' → ' + (dc.at(-1)?.date || '').slice(5),
+    city,
+    summary: {
+      distance: '—',
+      walking: '10k 步/日',
+      spots: days.reduce((a,d) => a + d.stops.filter(s => s.lat).length, 0),
+      meals: days.reduce((a,d) => a + d.stops.filter(s => /餐|面|食|茶|涮|店|堂/.test(s.name)).length, 0),
+      budget: itin.total_budget_cny ? `¥${itin.total_budget_cny}` : '—',
+    },
+    days,
+  };
+}
+
+function cat(name) {
+  if (/公园|广场/.test(name)) return '公园';
+  if (/茶|咖啡/.test(name)) return '咖啡';
+  if (/居酒屋|酒吧/.test(name)) return '酒馆';
+  if (/面|店|食|餐|菜|寿司|涮|料理/.test(name)) return '餐饮';
+  if (/商城|万象|COCO|广场|购物/i.test(name)) return '商场';
+  if (/湾|海|岸|山|岛/.test(name)) return '景观';
+  return '景点';
+}
+
+function buildTheme(stops, c) {
+  if (c.is_free_day || stops.length === 0) return '自由机动日';
+  const names = stops.slice(0,2).map(s => (s.name || '').replace(/[()\(\)·].*/,'').slice(0,4));
+  return names.join('・');
+}
+
+function renderResult() {
+  const t = state.trip;
+  if (!t) return;
+  $('top-crumb').textContent = `Trip · ${t.title}`;
+  $('res-eyebrow').textContent = `◆ Plan · 刚刚生成 · ${t.dates}`;
+  $('res-title').textContent = t.title;
+  $('res-sub').textContent = t.subtitle;
+  $('rr-city').textContent = t.city;
+
+  $('summary-strip').innerHTML = [
+    ['总距离', t.summary.distance],
+    ['日均步行', t.summary.walking],
+    ['景点', t.summary.spots],
+    ['餐食', t.summary.meals],
+    ['预算', t.summary.budget],
+  ].map(([k,v]) => `
+    <div class="summary-cell">
+      <div class="key">${k}</div>
+      <div class="val">${v}</div>
+    </div>
+  `).join('');
+
+  $('day-tabs').innerHTML = t.days.map(d => `
+    <button class="day-tab ${d.id === state.activeDay ? 'active' : ''}"
+            data-day="${d.id}"
+            style="border-left-color:${d.hue.mid}">
+      <div class="dt-meta" style="color:${d.hue.ink}">${d.label} · ${d.date}</div>
+      <div class="dt-theme">${d.theme}</div>
+    </button>
+  `).join('');
+  $('day-tabs').querySelectorAll('.day-tab').forEach(b => {
+    b.onclick = () => { state.activeDay = Number(b.dataset.day); renderResult(); };
+  });
+
+  const d = t.days.find(x => x.id === state.activeDay) || t.days[0];
+  $('rr-day-label').textContent = d.label;
+  if (d.tips) $('rr-sticky').textContent = d.tips;
+
+  const tl = $('timeline');
+  const dashed = `<div class="timeline-dashed" style="border-color:${d.hue.mid}"></div>`;
+  const rows = d.stops.map(s => `
+    <div class="tl-row">
+      <div class="tl-num-wrap">
+        <div class="tl-num" style="background:${d.hue.mid}; box-shadow:0 3px 8px ${d.hue.mid}80">${s.n}</div>
+        ${s.time ? `<div class="tl-time">${s.time}</div>` : ''}
+      </div>
+      <div class="tl-card">
+        <div class="name-row">
+          <div class="name">${s.name}</div>
+          <div class="cat-chip" style="background:${d.hue.bg}; color:${d.hue.ink}">${s.cat}</div>
+          ${s.dur ? `<div class="dur">${s.dur}</div>` : ''}
+        </div>
+        ${s.note ? `<div class="note">${s.note}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  const addRow = `
+    <div class="tl-add">
+      <div class="plus-wrap">
+        <div class="plus-dot" style="border-color:${d.hue.mid}; color:${d.hue.ink}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+      </div>
+      <button class="add-btn">加一个景点 / 餐食 …</button>
+    </div>`;
+  tl.innerHTML = dashed + rows + addRow;
+
+  drawResultMap(d);
+}
+
+function drawResultMap(day) {
+  if (!state.amap) {
+    state.amap = new AMap.Map('amap-container', {
+      zoom: 12, center: [113.97, 22.54], viewMode: '2D',
+    });
+  }
+  state.amapOverlays.forEach(o => state.amap.remove(o));
+  state.amapOverlays = [];
+
+  const pts = day.stops.filter(s => s.lat && s.lng).map(s => ({
+    ...s, lat: Number(s.lat), lng: Number(s.lng)
+  }));
+  if (pts.length === 0) return;
+
+  if (pts.length >= 2) {
+    const pl = new AMap.Polyline({
+      path: pts.map(p => [p.lng, p.lat]),
+      strokeColor: day.hue.mid,
+      strokeOpacity: 0.85,
+      strokeWeight: 4,
+      strokeStyle: 'dashed',
+      strokeDasharray: [10, 6],
+      lineJoin: 'round',
+    });
+    state.amap.add(pl);
+    state.amapOverlays.push(pl);
+  }
+
+  pts.forEach(p => {
+    const mk = new AMap.Marker({
+      position: [p.lng, p.lat],
+      offset: new AMap.Pixel(-14, -14),
+      content: `<div style="width:28px; height:28px; border-radius:50%; background:${day.hue.mid}; color:#fff; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.25)">${p.n}</div>`,
+    });
+    state.amap.add(mk);
+    state.amapOverlays.push(mk);
+  });
+
+  state.amap.setFitView(state.amapOverlays, false, [60, 60, 60, 60]);
+}
+
+// ─────────────────────────────────────────────────────
+// 状态切换 + 发送
+// ─────────────────────────────────────────────────────
+function switchState(name) {
+  state.now = name;
+  ['idle','thinking','result'].forEach(n => {
+    $('state-'+n).classList.toggle('visible', n === name);
+  });
+  if (name === 'idle') $('top-crumb').textContent = 'Home · 今日';
+  if (name === 'result') renderResult();
+}
+
+async function sendPrompt() {
+  const q = ($('prompt-ta').value || '').trim();
+  if (!q) return;
+  $('send-btn').disabled = true;
+
+  // 演示模式:深圳场景用 demo 数据绕过 4min 等待
+  const useDemo = q.includes('深圳五一') || q.includes('演示');
+  renderThinkingInit(q, '深圳');
+  switchState('thinking');
+
+  try {
+    let resp;
+    if (useDemo) {
+      // 直接读 demo 数据(秒回,用于展示)
+      await new Promise(r => setTimeout(r, 2500));
+      resp = await fetch('/plan/demo').then(r => r.json());
+    } else {
+      // 真 call /plan/custom(4 分钟)
+      $('think-eta').textContent = '预计 4 分钟 · 可随时打断';
+      const payload = buildRequestFromQuery(q);
+      resp = await fetch('/plan/custom', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      }).then(r => r.json());
+    }
+    state.trip = buildTripFromResponse(resp);
+    state.activeDay = state.trip.days[0]?.id || 1;
+    if (state.thinkingTimer) { clearInterval(state.thinkingTimer); state.thinkingTimer = null; }
+    state.stepIdx = state.steps.length;
+    renderSteps();
+    await new Promise(r => setTimeout(r, 400));
+    switchState('result');
+  } catch (e) {
+    alert('生成失败: ' + e.message);
+    switchState('idle');
+  } finally {
+    $('send-btn').disabled = false;
+  }
+}
+
+function buildRequestFromQuery(_q) {
+  // 简化:始终用深圳女友清单(演示版)。生产要从 q 里解析或走 /plan/profile-chat
+  return {
+    city:'深圳',
+    dates:{ start:'2026-04-29', end:'2026-05-04' },
+    party:{ people:2, relation:'情侣', traveler_type:'A' },
+    budget:{ target_cny:4000, hard_limit:false, covers:['住宿','餐饮','景点门票','市内交通'], excludes:['往返机票'] },
+    must_visit:['深圳湾公园','世界之窗','欢乐海岸','深圳人才公园','香蜜公园','南山荷兰花卉小镇','购物公园cocopark'],
+    constraints:{ wake_up:'10:00', max_daily_steps:10000, transport:['subway','taxi'], walk_radius_m:800 },
+    hotel:{ area_prefer:['南山','宝安中心'], booked:false },
+    holiday_crowd_risk_dates:['2026-05-01','2026-05-02','2026-05-03'],
+    max_rounds: 2,
+  };
+}
+
+// ─────────────────────────────────────────────────────
+// Bindings
+// ─────────────────────────────────────────────────────
+$('sb-toggle').onclick = () => {
+  const sb = $('sidebar');
+  sb.classList.toggle('compact');
+  $('sb-toggle').innerHTML = sb.classList.contains('compact')
+    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+};
+
+$('prompt-ta').oninput = updateCharCount;
+$('prompt-ta').onfocus = () => $('input-box').classList.add('focus');
+$('prompt-ta').onblur  = () => $('input-box').classList.remove('focus');
+$('send-btn').onclick = sendPrompt;
+$('prompt-ta').onkeydown = (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendPrompt(); }
+};
+
+renderIdle();
+</script>
+
+</body>
+</html>

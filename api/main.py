@@ -234,6 +234,12 @@ def serve_plan_stack():
     return _render_template("plan_stack.html")
 
 
+@app.get("/atelier")
+def serve_atelier():
+    """Atelier Deep 三态对话式入口(idle → thinking → result),对接 /plan/custom。"""
+    return _render_template("atelier.html")
+
+
 # ── XHS 图片代理(绕防盗链)── 本地演示用,不建议上 public
 _XHS_IMG_CACHE: dict = {}
 
